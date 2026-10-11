@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.5)
 
 # RCCL project
 #==================================================================================================
-project(sccl CXX)
+project(hetccl CXX)
 
 # Build options
 #==================================================================================================
@@ -73,7 +73,7 @@ set(VERSION ${VERSION_STRING})
 ## Fill in version information for main header file
 set(STREAM_INCLUDE "#include <hip/hip_runtime.h>")
 set(STREAM_TYPE "hipStream_t")
-configure_file(src/sccl.h.in ${PROJECT_BINARY_DIR}/include/rccl/rccl.h) # For linking against HIP programs
+configure_file(src/hetccl.h.in ${PROJECT_BINARY_DIR}/include/rccl/rccl.h) # For linking against HIP programs
 
 set(STREAM_INCLUDE "#include <cuda_runtime.h>
 #include <cuda_fp16.h>
@@ -81,11 +81,11 @@ set(STREAM_INCLUDE "#include <cuda_runtime.h>
 #include <cuda_bf16.h>
 #endif")
 set(STREAM_TYPE "cudaStream_t")
-configure_file(src/sccl.h.in ${PROJECT_BINARY_DIR}/include/nccl.h)      # For linking against CUDA programs
+configure_file(src/hetccl.h.in ${PROJECT_BINARY_DIR}/include/nccl.h)      # For linking against CUDA programs
 
 set(STREAM_INCLUDE "")
 set(STREAM_TYPE "void*")
-configure_file(src/sccl.h.in ${PROJECT_BINARY_DIR}/include/sccl.h)      # Used by some internal files
+configure_file(src/hetccl.h.in ${PROJECT_BINARY_DIR}/include/hetccl.h)      # Used by some internal files
 
 # Collect list of all source files
 #==================================================================================================
@@ -166,24 +166,24 @@ add_custom_target(git_version_check
 
 # Set up CUDA parts
 #==================================================================================================
-ExternalProject_Add(sccl_cuda
+ExternalProject_Add(hetccl_cuda
   SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cuda
   BUILD_ALWAYS true
   CMAKE_ARGS "-DBUILD_ALLREDUCE_ONLY=${BUILD_ALLREDUCE_ONLY}"
-  CMAKE_ARGS "-DSCCL_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-  CMAKE_ARGS "-DSCCL_BINARY_DIR=${PROJECT_BINARY_DIR}"
+  CMAKE_ARGS "-DHETCCL_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  CMAKE_ARGS "-DHETCCL_BINARY_DIR=${PROJECT_BINARY_DIR}"
   CMAKE_ARGS "-DCMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}"
 )
-ExternalProject_Get_Property(sccl_cuda BINARY_DIR)
-set(sccl_cuda_binary_dir ${BINARY_DIR})
+ExternalProject_Get_Property(hetccl_cuda BINARY_DIR)
+set(hetccl_cuda_binary_dir ${BINARY_DIR})
 
 # Set up HIP parts
 #==================================================================================================
-ExternalProject_Add(sccl_hip
+ExternalProject_Add(hetccl_hip
   SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/hip
   BUILD_ALWAYS true
-  CMAKE_ARGS "-DSCCL_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-  CMAKE_ARGS "-DSCCL_BINARY_DIR=${PROJECT_BINARY_DIR}"
+  CMAKE_ARGS "-DHETCCL_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+  CMAKE_ARGS "-DHETCCL_BINARY_DIR=${PROJECT_BINARY_DIR}"
   # User options
   CMAKE_ARGS "-DAMDGPU_TARGETS=${AMDGPU_TARGETS}"
   CMAKE_ARGS "-DENABLE_MSCCL_KERNEL=${ENABLE_MSCCL_KERNEL}"
@@ -203,23 +203,23 @@ ExternalProject_Add(sccl_hip
   CMAKE_ARGS "-DTIMETRACE=${TIMETRACE}"
   CMAKE_ARGS "-DTRACE=${TRACE}"
 )
-ExternalProject_Get_Property(sccl_hip BINARY_DIR)
-set(sccl_hip_binary_dir ${BINARY_DIR})
+ExternalProject_Get_Property(hetccl_hip BINARY_DIR)
+set(hetccl_hip_binary_dir ${BINARY_DIR})
 
 # Set up RCCL library
 #==================================================================================================
 ## Set RCCL source files
-add_library(sccl ${SRC_FILES})
-add_dependencies(sccl sccl_hip)
-add_dependencies(sccl sccl_cuda)
+add_library(hetccl ${SRC_FILES})
+add_dependencies(hetccl hetccl_hip)
+add_dependencies(hetccl hetccl_cuda)
 
 # Set up TACC
 add_subdirectory(deps/tacc)
-target_link_libraries(sccl PRIVATE tacc)
-target_include_directories(sccl PRIVATE deps/tacc/include)
+target_link_libraries(hetccl PRIVATE tacc)
+target_include_directories(hetccl PRIVATE deps/tacc/include)
 
 ## Set RCCL dependencies
-add_dependencies(sccl git_version_check)                                      # Execute git_version_check during build
+add_dependencies(hetccl git_version_check)                                      # Execute git_version_check during build
 
 ## Set RCCL include directories
 list(APPEND RCCL_INCLUDE_DIRS ${PROJECT_BINARY_DIR}/include)        # for generated rccl.h header
@@ -323,7 +323,7 @@ if(NOT BUILD_SHARED_LIBS)
   message(STATUS "Building static RCCL library")
   list(APPEND RCCL_LINK_LIBS --emit-static-lib)
   set(CMAKE_AR "${hipcc_executable}")
-  get_property(link_libraries TARGET sccl PROPERTY LINK_LIBRARIES)
+  get_property(link_libraries TARGET hetccl PROPERTY LINK_LIBRARIES)
   string (REPLACE ";" " " LINK_PROPS "${link_libraries}")
   set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> -o <TARGET> ${LINK_PROPS} <LINK_FLAGS> <OBJECTS>")
 else()
@@ -349,16 +349,16 @@ endif()
 # O0 results in segfault; check github issue
 list(APPEND RCCL_COMPILE_OPTS -O3)
 
-# Apply settings to sccl
-target_include_directories(sccl PRIVATE ${RCCL_INCLUDE_DIRS})
-target_compile_definitions(sccl PRIVATE ${RCCL_COMPILE_DEFS})
-target_compile_options(sccl PRIVATE ${RCCL_COMPILE_OPTS})
-target_link_directories(sccl PRIVATE ${RCCL_LINK_DIRS})
-target_link_libraries(sccl PRIVATE ${RCCL_LINK_LIBS})
-target_link_options(sccl PRIVATE ${RCCL_LINK_OPTS})
+# Apply settings to hetccl
+target_include_directories(hetccl PRIVATE ${RCCL_INCLUDE_DIRS})
+target_compile_definitions(hetccl PRIVATE ${RCCL_COMPILE_DEFS})
+target_compile_options(hetccl PRIVATE ${RCCL_COMPILE_OPTS})
+target_link_directories(hetccl PRIVATE ${RCCL_LINK_DIRS})
+target_link_libraries(hetccl PRIVATE ${RCCL_LINK_LIBS})
+target_link_options(hetccl PRIVATE ${RCCL_LINK_OPTS})
 
 # Track linking time
-set_property(TARGET sccl PROPERTY RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E time")
+set_property(TARGET hetccl PROPERTY RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E time")
 
 # Setup librccl.so version
 #rocm_set_soversion(rccl "1.0")

@@ -10,13 +10,13 @@
 
 __shared__ ncclShmemData ncclShmem;
 #if __CUDA_ARCH__ < 700
-  __shared__ ulong2 ncclShmemPerWarp[scclCudaShmemScratchWarpSize()*(SCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE)/sizeof(ulong2)];
+  __shared__ ulong2 ncclShmemPerWarp[hetcclCudaShmemScratchWarpSize()*(HETCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE)/sizeof(ulong2)];
 #endif
 
 #define NCCL_FUNC5(func, algo, devredop, type, nullify) \
-  MACRO_IF(nullify, nullptr, SCCL_CUDA_FUNC_NAME(func, algo, LL,     devredop, type)), \
-  MACRO_IF(nullify, nullptr, SCCL_CUDA_FUNC_NAME(func, algo, LL128,  devredop, type)), \
-  MACRO_IF(nullify, nullptr, SCCL_CUDA_FUNC_NAME(func, algo, SIMPLE, devredop, type))
+  MACRO_IF(nullify, nullptr, HETCCL_CUDA_FUNC_NAME(func, algo, LL,     devredop, type)), \
+  MACRO_IF(nullify, nullptr, HETCCL_CUDA_FUNC_NAME(func, algo, LL128,  devredop, type)), \
+  MACRO_IF(nullify, nullptr, HETCCL_CUDA_FUNC_NAME(func, algo, SIMPLE, devredop, type))
 
 #define NCCL_FUNC4(func, devredop, type, nullify) \
   NCCL_FUNC5(func, TREE,    devredop, type, nullify), \
@@ -100,18 +100,18 @@ __device__ ncclKern_t ncclFuncs[1+ncclNumTypes+NCCL_NUM_FUNCTIONS*ncclNumDevRedO
 #if defined(BUILD_ALLREDUCE_ONLY)
   NCCL_FUNC4(AllReduce, Sum, float, /*nullForFloat=*/0)
 #else
-  SCCL_CUDA_FUNC_NAME(SendRecv, RING, SIMPLE, Sum, int8_t),
-  SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, int8_t),
-  SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, uint8_t),
-  SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, int32_t),
-  SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, uint32_t),
-  SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, int64_t),
-  SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, uint64_t),
-  SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, half),
-  SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, float),
-  SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, double),
+  HETCCL_CUDA_FUNC_NAME(SendRecv, RING, SIMPLE, Sum, int8_t),
+  HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, int8_t),
+  HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, uint8_t),
+  HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, int32_t),
+  HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, uint32_t),
+  HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, int64_t),
+  HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, uint64_t),
+  HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, half),
+  HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, float),
+  HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, double),
   #if defined(__CUDA_BF16_TYPES_EXIST__)
-    SCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, __nv_bfloat16),
+    HETCCL_CUDA_ONERANK_REDUCE_NAME(PreMulSum, __nv_bfloat16),
   #endif
   NCCL_FUNCS2B(Broadcast),
   NCCL_FUNCS2A(Reduce),

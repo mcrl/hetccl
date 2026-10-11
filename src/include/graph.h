@@ -8,7 +8,7 @@
 #ifndef NCCL_GRAPH_H_
 #define NCCL_GRAPH_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "devcomm.h"
 #include <limits.h>
 #include <stdlib.h>

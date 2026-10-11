@@ -7,7 +7,7 @@
 #ifndef NCCL_SOCKET_H_
 #define NCCL_SOCKET_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>

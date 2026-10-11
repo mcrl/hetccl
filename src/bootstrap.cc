@@ -4,7 +4,7 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "core.h"
 #include "utils.h"
 #include "bootstrap.h"

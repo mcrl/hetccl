@@ -2,7 +2,7 @@
 
 #include <cstddef>
 #include "tacc.h"
-#include "sccl.h"
+#include "hetccl.h"
 
 struct ncclKernelMatch {
   void* kernelFn;
@@ -21,4 +21,4 @@ typedef struct {
                                 dim3_t dimBlocks, void** args, size_t sharedMemBytes,
                                 taccStream_t stream, taccEvent_t startEvent,
                                 taccEvent_t stopEvent, int flags);
-} scclPlugin_t;
+} hetcclPlugin_t;

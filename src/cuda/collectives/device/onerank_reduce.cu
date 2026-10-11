@@ -12,12 +12,12 @@
 namespace {
   template<typename T, typename RedOp>
   __device__ __forceinline__ void oneRankReduce() {
-    scclCudaWork *w = &ncclShmem.work;
+    hetcclCudaWork *w = &ncclShmem.work;
     int tid = threadIdx.x;
     int tn = blockDim.x;
     #pragma unroll 1
-    for(int e=0; e < SCCL_CUDA_MAX_WORK_ELEMENTS && w->elems[e].isUsed; e++) {
-      scclCudaWorkElem *we = &w->elems[e];
+    for(int e=0; e < HETCCL_CUDA_MAX_WORK_ELEMENTS && w->elems[e].isUsed; e++) {
+      hetcclCudaWorkElem *we = &w->elems[e];
       intptr_t eltN = we->count;
       int bid = we->bid;
       int bn = we->nChannels;
@@ -44,7 +44,7 @@ namespace {
 }
 
 #define INSTANTIATE(devredop, type) \
-  __device__ void SCCL_CUDA_ONERANK_REDUCE_NAME(devredop, type)() { \
+  __device__ void HETCCL_CUDA_ONERANK_REDUCE_NAME(devredop, type)() { \
     oneRankReduce<type, Func##devredop<type>>(); \
   }
 

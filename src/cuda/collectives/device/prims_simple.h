@@ -345,7 +345,7 @@ class Primitives<
     }
   }
 
-  __device__ __forceinline__ void loadRecvConn(scclCudaDevChannelPeer *peer, int connIndex, struct scclCudaWorkElem* e) {
+  __device__ __forceinline__ void loadRecvConn(hetcclCudaDevChannelPeer *peer, int connIndex, struct hetcclCudaWorkElem* e) {
     if (flags & (RoleWaitRecv|RolePostRecv)) {
       auto *conn = &peer->recv[connIndex];
       step = conn->step;
@@ -386,7 +386,7 @@ class Primitives<
     }
   }
 
-  __device__ __forceinline__ void loadSendConn(scclCudaDevChannelPeer *peer, int connIndex, struct scclCudaWorkElem* e) {
+  __device__ __forceinline__ void loadSendConn(hetcclCudaDevChannelPeer *peer, int connIndex, struct hetcclCudaWorkElem* e) {
     if (flags & (RoleWaitSend|RolePostSend)) {
       auto *conn = &peer->send[connIndex];
       step = conn->step;
@@ -434,7 +434,7 @@ class Primitives<
   __device__ Primitives(
       int tid, int nthreads, int const *recvPeers, int const *sendPeers,
       void const *inputBuf, void *outputBuf, uint64_t redOpArg, uint8_t group=0,
-      uint8_t connIndexRecv = 0, uint8_t connIndexSend = 0, struct scclCudaWorkElem* e = nullptr
+      uint8_t connIndexRecv = 0, uint8_t connIndexSend = 0, struct hetcclCudaWorkElem* e = nullptr
     ):
     tid(tid), nthreads(nthreads), tidInBlock(threadIdx.x), group(group),
     stepSize(ncclShmem.comm.buffSizes[NCCL_PROTO_SIMPLE]/NCCL_STEPS/sizeof(T)) {
@@ -473,7 +473,7 @@ class Primitives<
     loadRecvConn(ncclShmem.channel.peers[peer], connIndexRecv, e);
     loadSendConn(ncclShmem.channel.peers[peer], connIndexSend, e);
 
-    setDataPtrs(inputBuf, outputBuf, redOpArg, (struct scclCudaWorkElemReg*)e);
+    setDataPtrs(inputBuf, outputBuf, redOpArg, (struct hetcclCudaWorkElemReg*)e);
   }
 
   __device__ ~Primitives() {
@@ -490,7 +490,7 @@ class Primitives<
     barrier();
   }
 
-  __device__ void setDataPtrs(void const *inputBuf, void *outputBuf, uint64_t redOpArg, struct scclCudaWorkElemReg* e) {
+  __device__ void setDataPtrs(void const *inputBuf, void *outputBuf, uint64_t redOpArg, struct hetcclCudaWorkElemReg* e) {
     if (flags & RoleInput) {
       userBuff = (T*)inputBuf;
       ncclShmem.redOpArgs[0] = redOpArg;  // scaler for local input

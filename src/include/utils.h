@@ -7,7 +7,7 @@
 #ifndef NCCL_UTILS_H_
 #define NCCL_UTILS_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "alloc.h"
 #include "checks.h"
 #include <stdint.h>

@@ -8,7 +8,7 @@
 #ifndef NCCL_DEVICE_H_
 #define NCCL_DEVICE_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "rccl_bfloat16.h"
 #include "align.h"
 #if defined(ENABLE_NPKIT)
@@ -56,8 +56,8 @@ union ncclLLFifoLine {
 };
 
 #define MAXCHANNELS 32
-#define NCCL_SIMPLE_MAX_NTHREADS SCCL_HIP_MAX_NTHREADS
-#define NCCL_LL_MAX_NTHREADS SCCL_HIP_MAX_NTHREADS
+#define NCCL_SIMPLE_MAX_NTHREADS HETCCL_HIP_MAX_NTHREADS
+#define NCCL_LL_MAX_NTHREADS HETCCL_HIP_MAX_NTHREADS
 #define NCCL_LL_LINES_PER_THREAD 8
 #ifdef TEST_LL_CLEANUP
 #define NCCL_LL_CLEAN_MASK 0x078 // Set to 0x100 to disable cleanup

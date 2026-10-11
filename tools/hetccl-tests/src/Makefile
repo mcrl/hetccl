@@ -68,7 +68,7 @@ endif
 
 HIPCUFLAGS += $(foreach gpu,$(DEFAULT_GPUS),--offload-arch=$(gpu))
 
-LIBRARIES += sccl
+LIBRARIES += hetccl
 HIPLDFLAGS   += $(LIBRARIES:%=-l%)
 
 DST_DIR := $(BUILDDIR)

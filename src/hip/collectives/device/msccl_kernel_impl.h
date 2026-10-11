@@ -113,7 +113,7 @@ __device__ static void store(U *dst, U val) {
 
 inline __device__ static void barrier(int nthreads) {
 #if 1 //defined(__HIP_PLATFORM_HCC__) || defined(__HCC__) || defined(__HIPCC__)
-  assert(nthreads == SCCL_HIP_MAX_NTHREADS);
+  assert(nthreads == HETCCL_HIP_MAX_NTHREADS);
   __asm__ __volatile__("s_waitcnt vmcnt(0) lgkmcnt(0)\ns_barrier");
 #else
   asm volatile ("bar.sync %1, %0;" :: "r"(nthreads), "r"(15));
@@ -156,7 +156,7 @@ __device__ __forceinline__ void mscclRunInterpreter(
   struct ncclDevComm* comm, struct mscclAlgo* algo, struct mscclWork* work) {
   const int tid = threadIdx.x;
   const int bid = blockIdx.x;
-  const int nthreads = SCCL_HIP_MAX_NTHREADS;
+  const int nthreads = HETCCL_HIP_MAX_NTHREADS;
 
 #if defined(ENABLE_NPKIT)
   uint64_t timestamp_entry = 0;

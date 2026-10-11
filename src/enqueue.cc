@@ -20,7 +20,7 @@
 #include "nccl_net.h"
 #include "rocmwrap.h"
 #include "rccl_vars.h"
-#include "sccl.h"
+#include "hetccl.h"
 #include <cstring> // std::memcpy
 #include <cinttypes> // PRIx64
 #include <hip/hip_fp16.h>
@@ -34,19 +34,19 @@
 
 typedef void(*ncclKern_t)(struct ncclDevComm* comm, uint64_t channelMask, struct ncclWork* workHead);
 
-static int scclKernsCount = 0;
+static int hetcclKernsCount = 0;
 
 static ncclResult_t computeColl(struct ncclInfo* info /* input */, int* workFuncIndex, struct ncclWorkElem* work, struct ncclProxyOp* proxyOp /* output */);
-static ncclResult_t computeColl(struct ncclInfo* info /* input */, int* workFuncIndex, struct scclCudaWorkElem* work, struct ncclProxyOp* proxyOp /* output */);
+static ncclResult_t computeColl(struct ncclInfo* info /* input */, int* workFuncIndex, struct hetcclCudaWorkElem* work, struct ncclProxyOp* proxyOp /* output */);
 
 NCCL_PARAM(L1SharedMemoryCarveout, "L1_SHARED_MEMORY_CARVEOUT", 0);
 
 ncclResult_t ncclInitKernelList(ncclComm_t comm) {
   taccPlatform backend = comm->platform;
   if (backend == taccPlatformHip) {
-    scclKernsCount = comm->scclPlugin->kernsCount;
+    hetcclKernsCount = comm->hetcclPlugin->kernsCount;
   } else if (backend == taccPlatformCuda) {
-    scclKernsCount = comm->scclPlugin->kernsCount;
+    hetcclKernsCount = comm->hetcclPlugin->kernsCount;
   } else {
     WARN("Unsupported backend %u", static_cast<unsigned int>(backend));
     return ncclInternalError;
@@ -57,7 +57,7 @@ ncclResult_t ncclInitKernelList(ncclComm_t comm) {
 // Returns maximum kernel stack size of all CUDA kernels
 ncclResult_t ncclInitKernelsForDevice(ncclComm_t comm, int cudaArch, size_t* maxStackSize) {
   if (ncclInitKernelList(comm) != ncclSuccess) return ncclInternalError;
-  int KernelCount = scclKernsCount;
+  int KernelCount = hetcclKernsCount;
   ncclResult_t result = ncclSuccess;
 
   if (maxStackSize) *maxStackSize = 0;
@@ -70,10 +70,10 @@ ncclResult_t ncclInitKernelsForDevice(ncclComm_t comm, int cudaArch, size_t* max
       size_t localSizeBytes = 0;
       if (comm->platform == taccPlatformHip) {
         taccFuncAttributes attr = {0};
-        NCCLCHECKGOTO(comm->scclPlugin->funcGetAttributesByIndex(&attr, i), result, ignore0);
+        NCCLCHECKGOTO(comm->hetcclPlugin->funcGetAttributesByIndex(&attr, i), result, ignore0);
         localSizeBytes = attr.localSizeBytes;
       } else if (comm->platform == taccPlatformCuda) {
-        NCCLCHECKGOTO(comm->scclPlugin->funcGetLocalSizeBytesByIndex(&localSizeBytes, i), result, ignore0);
+        NCCLCHECKGOTO(comm->hetcclPlugin->funcGetLocalSizeBytesByIndex(&localSizeBytes, i), result, ignore0);
       } else {
         WARN("Unknown backend");
         return ncclInternalError;
@@ -84,11 +84,11 @@ ncclResult_t ncclInitKernelsForDevice(ncclComm_t comm, int cudaArch, size_t* max
 
     if (carveout) {
       if (comm->platform == taccPlatformHip) {
-        NCCLCHECKGOTO(comm->scclPlugin->funcSetAttributeByIndex(i,
+        NCCLCHECKGOTO(comm->hetcclPlugin->funcSetAttributeByIndex(i,
           taccFuncAttributePreferredSharedMemoryCarveout, carveout),
           result, ignore1);
       } else if (comm->platform == taccPlatformCuda) {
-        NCCLCHECKGOTO(comm->scclPlugin->funcSetAttributeByIndex(i,
+        NCCLCHECKGOTO(comm->hetcclPlugin->funcSetAttributeByIndex(i,
           taccFuncAttributePreferredSharedMemoryCarveout, carveout),
           result, ignore1);
       } else {
@@ -99,15 +99,15 @@ ncclResult_t ncclInitKernelsForDevice(ncclComm_t comm, int cudaArch, size_t* max
     }
 
     if (comm->platform == taccPlatformHip) {
-      if (scclHipShmemDynamicSize(cudaArch) != 0) {
-        NCCLCHECKGOTO(comm->scclPlugin->funcSetAttributeByIndex(i,
-          taccFuncAttributeMaxDynamicSharedMemorySize, scclHipShmemDynamicSize(cudaArch)),
+      if (hetcclHipShmemDynamicSize(cudaArch) != 0) {
+        NCCLCHECKGOTO(comm->hetcclPlugin->funcSetAttributeByIndex(i,
+          taccFuncAttributeMaxDynamicSharedMemorySize, hetcclHipShmemDynamicSize(cudaArch)),
           result, next_kernel);
       }
     } else if (comm->platform == taccPlatformCuda) {
-      if (scclCudaShmemDynamicSize(cudaArch) != 0) {
-        NCCLCHECKGOTO(comm->scclPlugin->funcSetAttributeByIndex(i,
-          taccFuncAttributeMaxDynamicSharedMemorySize, scclCudaShmemDynamicSize(cudaArch)),
+      if (hetcclCudaShmemDynamicSize(cudaArch) != 0) {
+        NCCLCHECKGOTO(comm->hetcclPlugin->funcSetAttributeByIndex(i,
+          taccFuncAttributeMaxDynamicSharedMemorySize, hetcclCudaShmemDynamicSize(cudaArch)),
           result, next_kernel);
       }
     } else {
@@ -156,12 +156,12 @@ static void appendWorkElemColl(
 
 static void appendWorkElemColl(
     struct ncclComm* comm, struct ncclKernelPlan* plan, int channelId,
-    int funcIndex, struct scclCudaWorkElem const *elem, int bid
+    int funcIndex, struct hetcclCudaWorkElem const *elem, int bid
   ) {
   struct ncclKernelPlan::Channel* chan = &plan->channels[channelId];
   struct ncclWorkList* q = ncclIntruQueueTail(&chan->workQueue);
   if (q) {
-    scclCudaWork *work = (scclCudaWork*)q->work;
+    hetcclCudaWork *work = (hetcclCudaWork*)q->work;
     if (funcIndex == work->header.funcIndex
         && elem->nWarps == work->elems[0].nWarps
         && chan->nWorkElem < NCCL_MAX_WORK_ELEMENTS) {
@@ -173,8 +173,8 @@ static void appendWorkElemColl(
     }
   }
   q = ncclMemoryStackAlloc<struct ncclWorkList>(&comm->memScoped);
-  q->work = ncclMemoryStackAlloc<scclCudaWork>(&comm->memScoped);
-  scclCudaWork *work = (scclCudaWork*)q->work;
+  q->work = ncclMemoryStackAlloc<hetcclCudaWork>(&comm->memScoped);
+  hetcclCudaWork *work = (hetcclCudaWork*)q->work;
   work->header.type = ncclWorkTypeColl;
   work->header.funcIndex = funcIndex;
   work->elems[0] = *elem; // C++ struct assignment
@@ -218,12 +218,12 @@ static void appendWorkElemColl(
 
 static void appendWorkElemColl(
     struct ncclComm* comm, struct ncclKernelPlan* plan, int channelId,
-    int funcIndex, struct scclCudaWorkElemReg const *elem, int bid
+    int funcIndex, struct hetcclCudaWorkElemReg const *elem, int bid
   ) {
   struct ncclKernelPlan::Channel* chan = &plan->channels[channelId];
   struct ncclWorkList* q = ncclIntruQueueTail(&chan->workQueue);
   if (q) {
-    scclCudaWork *work = (scclCudaWork*)q->work;
+    hetcclCudaWork *work = (hetcclCudaWork*)q->work;
     if (funcIndex == work->header.funcIndex
         && elem->elem.nWarps == work->regElems[0].elem.nWarps
         && chan->nWorkElem < NCCL_MAX_WORK_ELEMENTS_REG) {
@@ -235,8 +235,8 @@ static void appendWorkElemColl(
     }
   }
   q = ncclMemoryStackAlloc<struct ncclWorkList>(&comm->memScoped);
-  q->work = ncclMemoryStackAlloc<scclCudaWork>(&comm->memScoped);
-  scclCudaWork *work = (scclCudaWork*)q->work;
+  q->work = ncclMemoryStackAlloc<hetcclCudaWork>(&comm->memScoped);
+  hetcclCudaWork *work = (hetcclCudaWork*)q->work;
   work->header.type = ncclWorkTypeRegColl;
   work->header.funcIndex = funcIndex;
   work->regElems[0] = *elem; // C++ struct assignment
@@ -258,16 +258,16 @@ static void finishWorkP2p(struct ncclWork* work, int WarpSize) {
   int nWarp = 1;
   // ncclWorkElemP2p::nWarps is a 4-bit field: with 512 threads and wave32 (gfx11),
   // a single-element work would get 16 warps, which wraps to 0 and the element is skipped.
-  while (nWarp*nGroup <= (SCCL_HIP_MAX_NTHREADS/WarpSize)/2 && nWarp < 8) nWarp *= 2;
+  while (nWarp*nGroup <= (HETCCL_HIP_MAX_NTHREADS/WarpSize)/2 && nWarp < 8) nWarp *= 2;
   for (int i=0; i < nGroup; i++) {
     work->p2pElems[i].ngroups = nGroup;
-    work->p2pElems[i].warpStart = i*(SCCL_HIP_MAX_NTHREADS/WarpSize)/nGroup;
+    work->p2pElems[i].warpStart = i*(HETCCL_HIP_MAX_NTHREADS/WarpSize)/nGroup;
     int extraWarp = /*nWarp >= 2 ? i%2 : */0;
     work->p2pElems[i].nWarps = nWarp + extraWarp;
   }
 }
 
-static void finishWorkP2p(struct scclCudaWork* work, int WarpSize) {
+static void finishWorkP2p(struct hetcclCudaWork* work, int WarpSize) {
   int nElem = 0;
   for (int e=0; e < NCCL_MAX_WORK_ELEMENTS_P2P; e++) {
     if (work->p2pElems[e].p2pType != ncclWorkP2pTypeUnused)
@@ -276,10 +276,10 @@ static void finishWorkP2p(struct scclCudaWork* work, int WarpSize) {
   int nGroup = 1;
   while (nGroup < nElem) nGroup *= 2;
   int nWarp = 1;
-  while (nWarp*nGroup <= (SCCL_CUDA_MAX_NTHREADS/WarpSize)/2) nWarp *= 2;
+  while (nWarp*nGroup <= (HETCCL_CUDA_MAX_NTHREADS/WarpSize)/2) nWarp *= 2;
   for (int i=0; i < nGroup; i++) {
     work->p2pElems[i].ngroups = nGroup;
-    work->p2pElems[i].warpStart = i*(SCCL_CUDA_MAX_NTHREADS/WarpSize)/nGroup;
+    work->p2pElems[i].warpStart = i*(HETCCL_CUDA_MAX_NTHREADS/WarpSize)/nGroup;
     int extraWarp = /* nWarp >= 2 ? i%2 : */ 0;
     work->p2pElems[i].nWarps = nWarp + extraWarp;
   }
@@ -291,7 +291,7 @@ static void finishWork(struct ncclWork* work, int WarpSize) {
   }
 }
 
-static void finishWork(struct scclCudaWork* work, int WarpSize) {
+static void finishWork(struct hetcclCudaWork* work, int WarpSize) {
   if (work->header.type == ncclWorkTypeP2p) {
     finishWorkP2p(work, WarpSize);
   }
@@ -339,13 +339,13 @@ static void appendWorkElemP2p(
 
 static void appendWorkElemP2p(
     struct ncclComm* comm, struct ncclKernelPlan* plan, int channelId,
-    struct scclCudaWorkElemP2p const *elem, bool fuseOk
+    struct hetcclCudaWorkElemP2p const *elem, bool fuseOk
   ) {
   constexpr int funcIndex = CUDA_FUNC_INDEX_P2P;
   struct ncclKernelPlan::Channel* chan = &plan->channels[channelId];
   struct ncclWorkList* q = ncclIntruQueueTail(&chan->workQueue);
   if (q) {
-    scclCudaWork *work = (scclCudaWork*)q->work;
+    hetcclCudaWork *work = (hetcclCudaWork*)q->work;
     if (funcIndex == work->header.funcIndex) {
       if (!fuseOk) goto NewWork;
       if (chan->p2pTailElem[elem->p2pType-1] < NCCL_MAX_WORK_ELEMENTS_P2P) {
@@ -365,8 +365,8 @@ static void appendWorkElemP2p(
     }
   }
   q = ncclMemoryStackAlloc<struct ncclWorkList>(&comm->memScoped);
-  q->work = ncclMemoryStackAlloc<scclCudaWork>(&comm->memScoped);
-  scclCudaWork *work = (scclCudaWork*)q->work;
+  q->work = ncclMemoryStackAlloc<hetcclCudaWork>(&comm->memScoped);
+  hetcclCudaWork *work = (hetcclCudaWork*)q->work;
   work->header.type = ncclWorkTypeP2p;
   work->header.funcIndex = CUDA_FUNC_INDEX_P2P;
   chan->p2pTailElem[ncclWorkP2pTypeRecv-1] = 0;
@@ -475,7 +475,7 @@ static ncclResult_t addCollToPlan(
 
 static ncclResult_t addCollToPlan(
     struct ncclComm* comm, struct ncclKernelPlan* plan, int* nWorkBudget, int funcIndex,
-    struct scclCudaWorkElem const* workElem, struct ncclProxyOp const* proxyOp,
+    struct hetcclCudaWorkElem const* workElem, struct ncclProxyOp const* proxyOp,
     int nCollChannels, int nBid, size_t bytes, bool regBufUsed, void* regBufSend[], void* regBufRecv[]
   ) {
   struct ncclKernelPlan::Channel *chans = plan->channels;
@@ -523,7 +523,7 @@ static ncclResult_t addCollToPlan(
     } else {
       // Buffer registration in play which could only for CollNet at the moment.
       struct ncclChannel* channel = &comm->channels[c];
-      struct scclCudaWorkElemReg workElemReg;
+      struct hetcclCudaWorkElemReg workElemReg;
       workElemReg.elem = *workElem; // C++ struct assignment
       workElemReg.elem.regUsed = 1;
       for (int i=0; i < NCCL_MAX_DIRECT_ARITY; i++) {
@@ -590,7 +590,7 @@ static ncclResult_t addP2pToPlan(
     struct ncclWorkElemP2p elem = {0};
     elem.proto = info.protocol;
     elem.peer = addr == nullptr ? -1 : peer;
-    elem.nWarps = (comm->platform == taccPlatformHip ? SCCL_HIP_MAX_NTHREADS : SCCL_CUDA_MAX_NTHREADS) / comm->WarpSize;
+    elem.nWarps = (comm->platform == taccPlatformHip ? HETCCL_HIP_MAX_NTHREADS : HETCCL_CUDA_MAX_NTHREADS) / comm->WarpSize;
     elem.p2pType = isSendNotRecv ? ncclWorkP2pTypeSend : ncclWorkP2pTypeRecv;
     elem.buffLo32 = uint32_t(reinterpret_cast<uintptr_t>(addr));
     elem.buffHi32 = reinterpret_cast<uintptr_t>(addr)>>32;
@@ -601,10 +601,10 @@ static ncclResult_t addP2pToPlan(
     elem.connIndex = connIndex;
     appendWorkElemP2p(comm, plan, channelId, &elem, fuseOk);
   } else if (comm->platform == taccPlatformCuda) {
-    struct scclCudaWorkElemP2p elem = {0};
+    struct hetcclCudaWorkElemP2p elem = {0};
     elem.proto = info.protocol;
     elem.peer = peer;
-    elem.nWarps = SCCL_CUDA_MAX_NTHREADS / CUDA_WARP_SIZE;
+    elem.nWarps = HETCCL_CUDA_MAX_NTHREADS / CUDA_WARP_SIZE;
     elem.p2pType = isSendNotRecv ? ncclWorkP2pTypeSend : ncclWorkP2pTypeRecv;
     elem.buffLo32 = uint32_t(reinterpret_cast<uintptr_t>(addr));
     elem.buffHi32 = reinterpret_cast<uintptr_t>(addr)>>32;
@@ -642,7 +642,7 @@ static void finishPlan(struct ncclKernelPlan* plan) {
         work->header.isLast = 1;
         finishWork(work, plan->comm->WarpSize);
       } else if (platform == taccPlatformCuda) {
-        scclCudaWork *work = (scclCudaWork*)tail->work;
+        hetcclCudaWork *work = (hetcclCudaWork*)tail->work;
         work->header.isLast = 1;
         finishWork(work, plan->comm->WarpSize);
       } else {
@@ -806,7 +806,7 @@ static ncclResult_t scheduleCollTasksToPlan(
 
       int workFuncIndex;
       struct ncclWorkElem workElemHip = {};
-      struct scclCudaWorkElem workElemCuda = {};
+      struct hetcclCudaWorkElem workElemCuda = {};
       struct ncclProxyOp proxyOp = {};
       if (comm->platform == taccPlatformHip) {
         NCCLCHECK(computeColl(&info, &workFuncIndex, &workElemHip, &proxyOp));
@@ -849,10 +849,10 @@ static ncclResult_t scheduleCollTasksToPlan(
       if (!plan->kernelSpecialized) {
         if (comm->platform == taccPlatformHip) {
           plan->kernelFn = reinterpret_cast<void*>(ncclGetKernelIndex(comm));
-          comm->scclPlugin->getSpecializedByIndex(ncclGetKernelIndex(comm), &plan->kernelSpecialized);
+          comm->hetcclPlugin->getSpecializedByIndex(ncclGetKernelIndex(comm), &plan->kernelSpecialized);
         } else if (comm->platform == taccPlatformCuda) {
           plan->kernelFn = reinterpret_cast<void*>(workFuncIndex);
-          comm->scclPlugin->getSpecializedByIndex(workFuncIndex, &plan->kernelSpecialized);
+          comm->hetcclPlugin->getSpecializedByIndex(workFuncIndex, &plan->kernelSpecialized);
         } else {
           WARN("Unknown backend");
           return ncclInternalError;
@@ -884,14 +884,14 @@ static ncclResult_t scheduleP2pTasksToPlan(
   int const *sendOrder = tasks->p2pSendOrder;
   int const *recvOrder = tasks->p2pRecvOrder;
 
-  plan->threadPerBlock = std::max(plan->threadPerBlock, (comm->platform == taccPlatformHip ? SCCL_HIP_MAX_NTHREADS : SCCL_CUDA_MAX_NTHREADS));
+  plan->threadPerBlock = std::max(plan->threadPerBlock, (comm->platform == taccPlatformHip ? HETCCL_HIP_MAX_NTHREADS : HETCCL_CUDA_MAX_NTHREADS));
   if (!plan->kernelSpecialized) {
     if (comm->platform == taccPlatformHip) {
       plan->kernelFn = reinterpret_cast<void*>(ncclGetKernelIndex(comm));
-      comm->scclPlugin->getSpecializedByIndex(ncclGetKernelIndex(comm), &plan->kernelSpecialized);
+      comm->hetcclPlugin->getSpecializedByIndex(ncclGetKernelIndex(comm), &plan->kernelSpecialized);
     } else if (comm->platform == taccPlatformCuda) {
       plan->kernelFn = reinterpret_cast<void*>(CUDA_FUNC_INDEX_P2P);
-      comm->scclPlugin->getSpecializedByIndex(CUDA_FUNC_INDEX_P2P, &plan->kernelSpecialized);
+      comm->hetcclPlugin->getSpecializedByIndex(CUDA_FUNC_INDEX_P2P, &plan->kernelSpecialized);
     } else {
       WARN("Unknown backend");
       return ncclInternalError;
@@ -1059,7 +1059,7 @@ static ncclResult_t uploadWork(struct ncclComm* comm, struct ncclKernelPlan* pla
     if (comm->platform == taccPlatformHip) {
       workHeap = ncclMemoryStackAlloc<struct ncclWork>(&comm->memScoped, nWork);
     } else if (comm->platform == taccPlatformCuda) {
-      workHeap = ncclMemoryStackAlloc<struct scclCudaWork>(&comm->memScoped, nWork);
+      workHeap = ncclMemoryStackAlloc<struct hetcclCudaWork>(&comm->memScoped, nWork);
     } else {
       WARN("Unknown backend");
       return ncclInternalError;
@@ -1105,7 +1105,7 @@ static ncclResult_t uploadWork(struct ncclComm* comm, struct ncclKernelPlan* pla
         }
         ((ncclWork*)workHeap)[ix & ixMask] = *work; // C++ struct assignment
       } else if (comm->platform == taccPlatformCuda) {
-        scclCudaWork *work = (scclCudaWork*)q->work;
+        hetcclCudaWork *work = (hetcclCudaWork*)q->work;
         if (q->next != nullptr) {
           work->header.workNext = int32_t(ixSent & ixMask) - int32_t(ixHead & ixMask);
         } else {
@@ -1115,7 +1115,7 @@ static ncclResult_t uploadWork(struct ncclComm* comm, struct ncclKernelPlan* pla
           work->header.doneAcks = ix+1;
           comm->channels[c].workFifoSent = ix+1;
         }
-        ((scclCudaWork*)workHeap)[ix & ixMask] = *work; // C++ struct assignment
+        ((hetcclCudaWork*)workHeap)[ix & ixMask] = *work; // C++ struct assignment
       } else {
         WARN("Unknown backend");
         return ncclInternalError;
@@ -1131,7 +1131,7 @@ static ncclResult_t uploadWork(struct ncclComm* comm, struct ncclKernelPlan* pla
     if (comm->platform == taccPlatformHip) {
       plan->workHead = &((ncclWork*)comm->devWorkFifoHeap)[ixHead & ixMask];
     } else if (comm->platform == taccPlatformCuda) {
-      plan->workHead = &((scclCudaWork*)comm->devWorkFifoHeap)[ixHead & ixMask];
+      plan->workHead = &((hetcclCudaWork*)comm->devWorkFifoHeap)[ixHead & ixMask];
     } else {
       WARN("Unknown backend");
       return ncclInternalError;
@@ -1141,8 +1141,8 @@ static ncclResult_t uploadWork(struct ncclComm* comm, struct ncclKernelPlan* pla
       NCCLCHECK(ncclCudaMalloc((ncclWork**)&plan->workHead, nWork));
       NCCLCHECK(ncclCudaMemcpy((ncclWork*)plan->workHead, (ncclWork*)workHeap, nWork));
     } else if (comm->platform == taccPlatformCuda) {
-      NCCLCHECK(ncclCudaMalloc((scclCudaWork**)&plan->workHead, nWork));
-      NCCLCHECK(ncclCudaMemcpy((scclCudaWork*)plan->workHead, (scclCudaWork*)workHeap, nWork));
+      NCCLCHECK(ncclCudaMalloc((hetcclCudaWork**)&plan->workHead, nWork));
+      NCCLCHECK(ncclCudaMemcpy((hetcclCudaWork*)plan->workHead, (hetcclCudaWork*)workHeap, nWork));
     } else {
       WARN("Unknown backend");
       return ncclInternalError;
@@ -1362,16 +1362,16 @@ NCCL_PARAM(MemSyncDomain, "MEM_SYNC_DOMAIN", cudaLaunchMemSyncDomainRemote);
 static ncclResult_t DebugKernelArgs(ncclComm* comm, ncclKernelPlan* plan, void *args[3]) {
   // void *args[3] = {&comm->devComm, &plan->channelMask, &plan->workHead};
   if (comm->platform == taccPlatformCuda) {
-    scclCudaDevCommAndChannels devCommAndChannels;
+    hetcclCudaDevCommAndChannels devCommAndChannels;
     uint64_t channelMask;
     int nchannels = plan->channelCount;
-    scclCudaWork workHead[nchannels];
+    hetcclCudaWork workHead[nchannels];
     CUDACHECK(taccMemcpy(&devCommAndChannels, *(void**)args[0], sizeof(devCommAndChannels), taccMemcpyDeviceToHost));
     channelMask = *(uint64_t*)args[1];
     CUDACHECK(taccMemcpy(workHead, *(void**)args[2], sizeof(workHead), taccMemcpyDeviceToHost));
 
-    scclCudaDevComm& comm = devCommAndChannels.comm;
-    INFO(NCCL_INIT, "Dumping scclCudaDevComm...");
+    hetcclCudaDevComm& comm = devCommAndChannels.comm;
+    INFO(NCCL_INIT, "Dumping hetcclCudaDevComm...");
     INFO(NCCL_INIT, "comm.rank = %d", comm.rank);
     INFO(NCCL_INIT, "comm.nRanks = %d", comm.nRanks);
     INFO(NCCL_INIT, "comm.buffSizes = {%d, %d, %d}", comm.buffSizes[0], comm.buffSizes[1], comm.buffSizes[2]);
@@ -1381,23 +1381,23 @@ static ncclResult_t DebugKernelArgs(ncclComm* comm, ncclKernelPlan* plan, void *
     INFO(NCCL_INIT, "comm.channels = %p", comm.channels);
 
     for (int i = 0; i < nchannels; ++i) {
-      scclCudaDevChannel& channel = devCommAndChannels.channels[i];
-      INFO(NCCL_INIT, "Dumping scclCudaDevChannel[%d]...", i);
+      hetcclCudaDevChannel& channel = devCommAndChannels.channels[i];
+      INFO(NCCL_INIT, "Dumping hetcclCudaDevChannel[%d]...", i);
       int npeers = 1;
-      scclCudaDevChannelPeer* peers[npeers];
+      hetcclCudaDevChannelPeer* peers[npeers];
       CUDACHECK(taccMemcpy(peers, channel.peers, sizeof(peers), taccMemcpyDeviceToHost));
       for (int j = 0; j < 1; ++j) {
         INFO(NCCL_INIT, "channel.peers[%d] = %p", j, peers[j]);
-        scclCudaDevChannelPeer peer;
+        hetcclCudaDevChannelPeer peer;
         CUDACHECK(taccMemcpy(&peer, peers[j], sizeof(peer), taccMemcpyDeviceToHost));
-        for (int k = 0; k < SCCL_CUDA_MAX_CONNS * 2; ++k) {
-          scclCudaConnInfo connInfo;
-          if (k < SCCL_CUDA_MAX_CONNS) {
+        for (int k = 0; k < HETCCL_CUDA_MAX_CONNS * 2; ++k) {
+          hetcclCudaConnInfo connInfo;
+          if (k < HETCCL_CUDA_MAX_CONNS) {
             connInfo = peer.send[k];
             INFO(NCCL_INIT, "channel.peers[%d].send[%d]:", j, k);
           } else {
-            connInfo = peer.recv[k - SCCL_CUDA_MAX_CONNS];
-            INFO(NCCL_INIT, "channel.peers[%d].recv[%d]:", j, k - SCCL_CUDA_MAX_CONNS);
+            connInfo = peer.recv[k - HETCCL_CUDA_MAX_CONNS];
+            INFO(NCCL_INIT, "channel.peers[%d].recv[%d]:", j, k - HETCCL_CUDA_MAX_CONNS);
           }
           INFO(NCCL_INIT, "buffs = {%p, %p, %p}", connInfo.buffs[0], connInfo.buffs[1], connInfo.buffs[2]);
           INFO(NCCL_INIT, "tail = %p", connInfo.tail);
@@ -1420,7 +1420,7 @@ static ncclResult_t DebugKernelArgs(ncclComm* comm, ncclKernelPlan* plan, void *
     CUDACHECK(taccMemcpy(workHead, *(void**)args[2], sizeof(workHead), taccMemcpyDeviceToHost));
 
     ncclDevComm& comm = devCommAndChannels.comm;
-    INFO(NCCL_INIT, "Dumping scclHipDevComm...");
+    INFO(NCCL_INIT, "Dumping hetcclHipDevComm...");
     INFO(NCCL_INIT, "comm.rank = %d", comm.rank);
     INFO(NCCL_INIT, "comm.nRanks = %d", comm.nRanks);
     INFO(NCCL_INIT, "comm.buffSizes = {%d, %d, %d}", comm.buffSizes[0], comm.buffSizes[1], comm.buffSizes[2]);
@@ -1431,7 +1431,7 @@ static ncclResult_t DebugKernelArgs(ncclComm* comm, ncclKernelPlan* plan, void *
 
     for (int i = 0; i < nchannels; ++i) {
       ncclDevChannel& channel = devCommAndChannels.channels[i];
-      INFO(NCCL_INIT, "Dumping scclHipDevChannel[%d]...", i);
+      INFO(NCCL_INIT, "Dumping hetcclHipDevChannel[%d]...", i);
       int npeers = 1;
       ncclDevChannelPeer* peers[npeers];
       CUDACHECK(taccMemcpy(peers, channel.peers, sizeof(peers), taccMemcpyDeviceToHost));
@@ -1471,9 +1471,9 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan
   dim3_t block = {(unsigned)plan->threadPerBlock, 1, 1};
   size_t smem;
   if (comm->platform == taccPlatformHip) {
-    smem = scclHipShmemDynamicSize(comm->cudaArch);
+    smem = hetcclHipShmemDynamicSize(comm->cudaArch);
   } else if (comm->platform == taccPlatformCuda) {
-    smem = scclCudaShmemDynamicSize(comm->cudaArch);
+    smem = hetcclCudaShmemDynamicSize(comm->cudaArch);
   } else {
     WARN("Unknown backend");
     return ncclInternalError;
@@ -1481,7 +1481,7 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan
   void *args[3] = {&comm->devComm, &plan->channelMask, &plan->workHead};
   if (comm->platform == taccPlatformHip) {
     if (tasks->numStreams == 1) {
-      NCCLCHECK(comm->scclPlugin->extLaunchKernelByIndex((int)(size_t)plan->kernelFn, grid, block, args, 0, tasks->streams->stream, NULL, comm->doneEvent, 0));
+      NCCLCHECK(comm->hetcclPlugin->extLaunchKernelByIndex((int)(size_t)plan->kernelFn, grid, block, args, 0, tasks->streams->stream, NULL, comm->doneEvent, 0));
       comm->lastStream = tasks->streams->stream;
       return ncclSuccess;
     }
@@ -1535,9 +1535,9 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan
   #endif
   // Standard kernel launch
   if (comm->platform == taccPlatformHip) {
-    //NCCLCHECK(comm->scclPlugin->launchKernelByIndex((int)(size_t)fn, grid, block, args, smem, launchStream));
+    //NCCLCHECK(comm->hetcclPlugin->launchKernelByIndex((int)(size_t)fn, grid, block, args, smem, launchStream));
   } else if (comm->platform == taccPlatformCuda) {
-    NCCLCHECK(comm->scclPlugin->launchKernelByIndex((int)(size_t)fn, grid, block, args, smem, launchStream));
+    NCCLCHECK(comm->hetcclPlugin->launchKernelByIndex((int)(size_t)fn, grid, block, args, smem, launchStream));
   } else {
     WARN("Unknown backend");
     return ncclInternalError;
@@ -1844,7 +1844,7 @@ static void PrintInfoFromFuncIndex(int index) {
   }
   p += sprintf(p, " ncclType=");
   switch (ncclType) {
-    // Check ncclDataType_t in sccl.h.in
+    // Check ncclDataType_t in hetccl.h.in
     case ncclChar: p += sprintf(p, "Char"); break;
     case ncclUint8: p += sprintf(p, "Uint8"); break;
     case ncclInt: p += sprintf(p, "Int"); break;
@@ -2021,7 +2021,7 @@ comp_next:
   return ncclSuccess;
 }
 
-static ncclResult_t computeColl(struct ncclInfo* info /* input */, int* workFuncIndex, struct scclCudaWorkElem* work, struct ncclProxyOp* proxyOp /* output */) {
+static ncclResult_t computeColl(struct ncclInfo* info /* input */, int* workFuncIndex, struct hetcclCudaWorkElem* work, struct ncclProxyOp* proxyOp /* output */) {
   taccPlatform platform;
   TACCCHECK(taccGetPlatform(&platform));
   if (platform != taccPlatformCuda) {

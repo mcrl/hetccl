@@ -57,7 +57,7 @@ static void init() {
   taccGetPlatform(&platform);
   if (platform == taccPlatformHip) {
     if (hipFuncList.handle) return;
-    const char* fn = "libsccl_tests_hip.so";
+    const char* fn = "libhetccl_tests_hip.so";
     hipFuncList.handle = dlopen(fn, RTLD_LAZY);
     if (!hipFuncList.handle) {
       fprintf(stderr, "Failed to load %s: %s\n", fn, dlerror());
@@ -74,7 +74,7 @@ static void init() {
     #undef CMD
   } else if (platform == taccPlatformCuda) {
     if (cudaFuncList.handle) return;
-    const char* fn = "libsccl_tests_cuda.so";
+    const char* fn = "libhetccl_tests_cuda.so";
     cudaFuncList.handle = dlopen(fn, RTLD_LAZY);
     if (!cudaFuncList.handle) {
       fprintf(stderr, "Failed to load %s: %s\n", fn, dlerror());

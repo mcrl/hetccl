@@ -27,7 +27,7 @@ THE SOFTWARE.
 #ifdef USE_ROCM_SMI64CONFIG
 #include "rocm_smi/rocm_smi64Config.h"
 #endif
-#include "sccl.h"
+#include "hetccl.h"
 
 ncclResult_t rocm_smi_init();
 ncclResult_t rocm_smi_getNumDevice(uint32_t* num_devs);

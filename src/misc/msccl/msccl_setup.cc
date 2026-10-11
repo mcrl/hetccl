@@ -360,7 +360,7 @@ ncclResult_t mscclSetupKernel(const void* sendBuff, void* recvBuff, size_t count
 
   uint32_t numBlocks = (uint32_t)hostAlgo->nBlocks;
   dim3_t grid = {numBlocks, 1, 1};
-  dim3_t block = {SCCL_HIP_MAX_NTHREADS, 1, 1};
+  dim3_t block = {HETCCL_HIP_MAX_NTHREADS, 1, 1};
   ncclDevRedOpFull opFull = {};
   NCCLCHECK(hostToDevRedOp(&opFull, op, dataType, comm));
 

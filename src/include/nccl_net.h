@@ -7,7 +7,7 @@
 #ifndef NCCL_NET_H_
 #define NCCL_NET_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include <stdint.h>
 
 #define NCCL_NET_HANDLE_MAXSIZE 128

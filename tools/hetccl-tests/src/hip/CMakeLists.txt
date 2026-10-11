@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(CMAKE_CXX_COMPILER /opt/rocm/bin/hipcc)
-project(sccl_tests_hip CXX)
+project(hetccl_tests_hip CXX)
 
 # Default GPU architectures to build
 #==================================================================================================
@@ -84,10 +84,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 #==================================================================================================
 find_package(hip REQUIRED)
-add_library(sccl_tests_hip SHARED verifiable_hip.cpp)
-target_include_directories(sccl_tests_hip PRIVATE ${GLOBAL_SOURCE_DIR}/src)
-target_include_directories(sccl_tests_hip PRIVATE ${SCCL_HOME}/src/tacc)
-target_include_directories(sccl_tests_hip PRIVATE ${SCCL_HOME}/build/include)
-target_include_directories(sccl_tests_hip PRIVATE ${SCCL_HOME}/deps/tacc/include)
-target_link_libraries(sccl_tests_hip PRIVATE hip::device) # this actually adds --offload-arch based on AMDGPU_TARGETS
-install(TARGETS sccl_tests_hip DESTINATION ${GLOBAL_BINARY_DIR})
+add_library(hetccl_tests_hip SHARED verifiable_hip.cpp)
+target_include_directories(hetccl_tests_hip PRIVATE ${GLOBAL_SOURCE_DIR}/src)
+target_include_directories(hetccl_tests_hip PRIVATE ${HETCCL_HOME}/src/tacc)
+target_include_directories(hetccl_tests_hip PRIVATE ${HETCCL_HOME}/build/include)
+target_include_directories(hetccl_tests_hip PRIVATE ${HETCCL_HOME}/deps/tacc/include)
+target_link_libraries(hetccl_tests_hip PRIVATE hip::device) # this actually adds --offload-arch based on AMDGPU_TARGETS
+install(TARGETS hetccl_tests_hip DESTINATION ${GLOBAL_BINARY_DIR})

@@ -2,14 +2,11 @@
 
 HetCCL is a collective communication library for training deep learning models on clusters with **both NVIDIA and AMD GPUs**.
 It uses the vendor libraries ([NCCL](https://github.com/NVIDIA/nccl) and [RCCL](https://github.com/ROCm/rccl)) as backends and adds a cross-vendor runtime abstraction (TACC) plus RDMA-based inter-node communication between GPUs of different vendors.
-Because HetCCL keeps the NCCL API, existing training code (e.g., PyTorch + DeepSpeed) runs on a mixed NVIDIA/AMD cluster without modification: preload `libsccl.so` and launch as usual.
+Because HetCCL keeps the NCCL API, existing training code (e.g., PyTorch + DeepSpeed) runs on a mixed NVIDIA/AMD cluster without modification: preload `libhetccl.so` and launch as usual.
 
 This repository is the official implementation of the NeurIPS 2026 paper:
 
 > **HetCCL: Efficient LLM Training on Heterogeneous Vendor GPUs**
-
-> [!NOTE]
-> Some components and files are named `SCCL` / `sccl` (e.g., `libsccl.so`). This is an earlier internal name for HetCCL; both refer to the same implementation.
 
 ## Table of Contents
 
@@ -93,8 +90,8 @@ HetCCL compiles device code for both vendors, so the build needs `hipcc` (ROCm) 
 The examples below target AMD Radeon PRO W7800 (`gfx1100`) and NVIDIA V100 (`sm_70`); change `AMDGPU_TARGETS` and `CMAKE_CUDA_ARCHITECTURES` for your GPUs.
 `-DCUDA_HOME` is always required, because TACC includes the CUDA headers.
 
-The build produces `build/libsccl.so` (the library to preload), `build/libsccl_cuda.so`, `build/libsccl_hip.so`, and `build/deps/tacc/libtacc.so`.
-The tests build produces `tools/hetccl-tests/build/*_perf`, `libsccl_tests_cuda.so`, and `libsccl_tests_hip.so`.
+The build produces `build/libhetccl.so` (the library to preload), `build/libhetccl_cuda.so`, `build/libhetccl_hip.so`, and `build/deps/tacc/libtacc.so`.
+The tests build produces `tools/hetccl-tests/build/*_perf`, `libhetccl_tests_cuda.so`, and `libhetccl_tests_hip.so`.
 
 #### Option A: a node with both CUDA and ROCm
 
@@ -119,26 +116,26 @@ On the AMD node, `CUDA_HOME` only needs to contain the CUDA headers (`$CUDA_HOME
 # 1) AMD node: configure and build the HIP part
 cd hetccl && mkdir build && cd build
 cmake -DAMDGPU_TARGETS=gfx1100 -DCMAKE_CUDA_ARCHITECTURES=70 -DCUDA_HOME=$CUDA_HOME ..
-make -j sccl_hip tacc git_version_check
+make -j hetccl_hip tacc git_version_check
 
 # 2) NVIDIA node (nvcc in PATH): build the CUDA part
 cd hetccl/build
-make -j sccl_cuda
+make -j hetccl_cuda
 
-# 3) AMD node: link libsccl.so without rebuilding the vendor parts
+# 3) AMD node: link libhetccl.so without rebuilding the vendor parts
 cd hetccl/build
-make -j sccl/fast
+make -j hetccl/fast
 ```
 
 ```bash
 # 1) AMD node (mpicxx in PATH)
 cd hetccl/tools/hetccl-tests && mkdir build && cd build
 cmake -DAMDGPU_TARGETS=gfx1100 -DCMAKE_CUDA_ARCHITECTURES=70 ..
-make -j sccl_tests_hip git_version_check
+make -j hetccl_tests_hip git_version_check
 
 # 2) NVIDIA node
 cd hetccl/tools/hetccl-tests/build
-make -j sccl_tests_cuda
+make -j hetccl_tests_cuda
 
 # 3) AMD node
 cd hetccl/tools/hetccl-tests/build
@@ -182,12 +179,12 @@ make -j
 
 ### Point-to-Point & Collective Communication
 
-HetCCL is used by preloading `libsccl.so`. For example, with `hetccl-tests`:
+HetCCL is used by preloading `libhetccl.so`. For example, with `hetccl-tests`:
 
 ```bash
 mpirun -mca pml ucx -mca btl ^openib \
   -H apa00:4,apa01:4,v05:4,v06:4 \
-  -x LD_PRELOAD=$HETCCL_HOME/build/libsccl.so \
+  -x LD_PRELOAD=$HETCCL_HOME/build/libhetccl.so \
   -x LD_LIBRARY_PATH=$HETCCL_HOME/build:$HETCCL_HOME/build/deps/tacc:$HETCCL_HOME/tools/hetccl-tests/build:$LD_LIBRARY_PATH \
   -x NCCL_ALGO=RING \
   $HETCCL_HOME/tools/hetccl-tests/build/all_reduce_perf -b 1K -e 1G -f 2 -w 10 -n 100

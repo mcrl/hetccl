@@ -42,7 +42,7 @@ ncclResult_t initChannel(struct ncclComm* comm, int channelId) {
       if (comm->platform == taccPlatformHip) {
         NCCLCHECK(ncclCudaCallocAsync((ncclDevChannelPeer**)sharedRes->devPeers + channelId, sharedRes->tpNRanks, sharedRes->deviceStream.cudaStream));
       } else if (comm->platform == taccPlatformCuda) {
-        NCCLCHECK(ncclCudaCallocAsync((scclCudaDevChannelPeer**)sharedRes->devPeers + channelId, sharedRes->tpNRanks, sharedRes->deviceStream.cudaStream));
+        NCCLCHECK(ncclCudaCallocAsync((hetcclCudaDevChannelPeer**)sharedRes->devPeers + channelId, sharedRes->tpNRanks, sharedRes->deviceStream.cudaStream));
       } else {
         WARN("Unknown backend");
         return ncclInternalError;
@@ -56,7 +56,7 @@ ncclResult_t initChannel(struct ncclComm* comm, int channelId) {
       if (comm->platform == taccPlatformHip) {
         addr = (uintptr_t)((ncclDevChannelPeer*)comm->sharedRes->devPeers[channelId] + comm->topParentRanks[r]);
       } else if (comm->platform == taccPlatformCuda) {
-        addr = (uintptr_t)((scclCudaDevChannelPeer*)comm->sharedRes->devPeers[channelId] + comm->topParentRanks[r]);
+        addr = (uintptr_t)((hetcclCudaDevChannelPeer*)comm->sharedRes->devPeers[channelId] + comm->topParentRanks[r]);
       } else {
         WARN("Unknown backend");
         return ncclInternalError;

@@ -1,7 +1,7 @@
 #include "devcomm.h"
 #include "collectives_private.h"
 
-// Interfaces from SCCL
+// Interfaces from HETCCL
 #include "ext_plugin.h"
 #include "tacc.h"
 #include "msccl/msccl_kernel.h"
@@ -54,7 +54,7 @@ void* mscclKernelEntries[ncclNumDevRedOps * ncclNumTypes * NCCL_NUM_PROTOCOLS] =
 #endif
 };
 
-static ncclResult_t scclHipFuncGetAttributesByIndex(taccFuncAttributes* attr, int index) {
+static ncclResult_t hetcclHipFuncGetAttributesByIndex(taccFuncAttributes* attr, int index) {
   taccError_t err = taccFuncGetAttributes(attr, mscclKernelEntries[index]);
   if (err != taccSuccess) {
     return ncclInternalError;
@@ -62,7 +62,7 @@ static ncclResult_t scclHipFuncGetAttributesByIndex(taccFuncAttributes* attr, in
   return ncclSuccess;
 }
 
-static ncclResult_t scclHipFuncSetAttributeByIndex(int index, taccFuncAttribute attr, int value) {
+static ncclResult_t hetcclHipFuncSetAttributeByIndex(int index, taccFuncAttribute attr, int value) {
   taccError_t err = taccFuncSetAttribute(mscclKernelEntries[index], attr, value);
   if (err != taccSuccess) {
     return ncclInternalError;
@@ -70,7 +70,7 @@ static ncclResult_t scclHipFuncSetAttributeByIndex(int index, taccFuncAttribute 
   return ncclSuccess;
 }
 
-static ncclResult_t scclHipLaunchKernelByIndex(int index, dim3_t gridDim, dim3_t blockDim, void** args, size_t sharedMem, taccStream_t stream) {
+static ncclResult_t hetcclHipLaunchKernelByIndex(int index, dim3_t gridDim, dim3_t blockDim, void** args, size_t sharedMem, taccStream_t stream) {
   taccError_t err = taccLaunchKernel(mscclKernelEntries[index], gridDim, blockDim, args, sharedMem, stream);
   if (err != taccSuccess) {
     return ncclInternalError;
@@ -78,7 +78,7 @@ static ncclResult_t scclHipLaunchKernelByIndex(int index, dim3_t gridDim, dim3_t
   return ncclSuccess;
 }
 
-static ncclResult_t scclHipExtLaunchKernelByIndex(int index, dim3_t numBlocks,
+static ncclResult_t hetcclHipExtLaunchKernelByIndex(int index, dim3_t numBlocks,
                                 dim3_t dimBlocks, void** args, size_t sharedMemBytes,
                                 taccStream_t stream, taccEvent_t startEvent,
                                 taccEvent_t stopEvent, int flags) {
@@ -89,10 +89,10 @@ static ncclResult_t scclHipExtLaunchKernelByIndex(int index, dim3_t numBlocks,
   return ncclSuccess;
 }
 
-scclPlugin_t scclPluginHipMsccl = {
+hetcclPlugin_t hetcclPluginHipMsccl = {
   .kernsCount = sizeof(mscclKernelEntries)/sizeof(void *),
-  .funcGetAttributesByIndex = scclHipFuncGetAttributesByIndex,
-  .funcSetAttributeByIndex = scclHipFuncSetAttributeByIndex,
-  .launchKernelByIndex = scclHipLaunchKernelByIndex,
-  .extLaunchKernelByIndex = scclHipExtLaunchKernelByIndex
+  .funcGetAttributesByIndex = hetcclHipFuncGetAttributesByIndex,
+  .funcSetAttributeByIndex = hetcclHipFuncSetAttributeByIndex,
+  .launchKernelByIndex = hetcclHipLaunchKernelByIndex,
+  .extLaunchKernelByIndex = hetcclHipExtLaunchKernelByIndex
 };

@@ -8,7 +8,7 @@
 #ifndef NCCL_GROUP_H_
 #define NCCL_GROUP_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "comm.h"
 
 ncclResult_t ncclGroupErrCheck(ncclResult_t ret);

@@ -9,7 +9,7 @@
 #ifndef MSCCL_PARSER_H_
 #define MSCCL_PARSER_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "debug.h"
 #include "checks.h"
 #include <stdlib.h>

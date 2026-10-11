@@ -8,7 +8,7 @@
 #ifndef NCCL_GDRWRAP_H_
 #define NCCL_GDRWRAP_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include <stdint.h> // for standard [u]intX_t types
 #include <stdio.h>
 #include <stdlib.h>

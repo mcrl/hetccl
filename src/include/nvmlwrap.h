@@ -7,7 +7,7 @@
 #ifndef NCCL_NVMLWRAP_H_
 #define NCCL_NVMLWRAP_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 
 //#define NCCL_NVML_DIRECT 1
 #ifndef NCCL_NVML_DIRECT

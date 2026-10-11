@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <algorithm> // For std::min/std::max
-#include "sccl.h"
+#include "hetccl.h"
 
 #ifdef PROFAPI
 #define NCCL_API(ret, func, args...)        \

@@ -14,38 +14,38 @@
 #include <cuda_bf16.h>
 #endif
 
-#define COLL_UNROLL (scclCudaCollUnroll())
+#define COLL_UNROLL (hetcclCudaCollUnroll())
 
 typedef void(*ncclKern_t)();
 extern __device__ ncclKern_t ncclFuncs[];
 
 struct ncclShmemGroup {
-  scclCudaConnInfo *recvConns[NCCL_MAX_NVLS_ARITY];
-  scclCudaConnInfo *sendConns[NCCL_MAX_NVLS_ARITY];
+  hetcclCudaConnInfo *recvConns[NCCL_MAX_NVLS_ARITY];
+  hetcclCudaConnInfo *sendConns[NCCL_MAX_NVLS_ARITY];
   void* srcs[NCCL_MAX_NVLS_ARITY+1];
   void* dsts[NCCL_MAX_NVLS_ARITY+1];
 };
 
 struct ncclShmemData {
-  struct ncclShmemGroup groups[SCCL_CUDA_MAX_GROUPS];
+  struct ncclShmemGroup groups[HETCCL_CUDA_MAX_GROUPS];
   uint64_t redOpArgs[NCCL_MAX_NVLS_ARITY+1];
   int channelId;
   int aborted;
-  alignas(16) struct scclCudaDevComm comm;
-  alignas(16) struct scclCudaDevChannel channel;
-  alignas(16) struct scclCudaWork work;
+  alignas(16) struct hetcclCudaDevComm comm;
+  alignas(16) struct hetcclCudaDevChannel channel;
+  alignas(16) struct hetcclCudaWork work;
 };
 static_assert(offsetof(struct ncclShmemData, work)%16 == 0, "shmem.work needs to be 16B aligned");
 
 extern __shared__ ncclShmemData ncclShmem;
 #if __CUDA_ARCH__ >= 700
-  extern __shared__ ulong2 ncclShmemPerWarp[/*scclCudaShmemDynamicSize()/sizeof(ulong2)*/];
+  extern __shared__ ulong2 ncclShmemPerWarp[/*hetcclCudaShmemDynamicSize()/sizeof(ulong2)*/];
 #else
-  extern __shared__ ulong2 ncclShmemPerWarp[scclCudaShmemScratchWarpSize()*(SCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE)/sizeof(ulong2)];
+  extern __shared__ ulong2 ncclShmemPerWarp[hetcclCudaShmemScratchWarpSize()*(HETCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE)/sizeof(ulong2)];
 #endif
 
 __device__ inline void* ncclScratchForWarp(int warp) {
-  return (char*)ncclShmemPerWarp + warp*scclCudaShmemScratchWarpSize();
+  return (char*)ncclShmemPerWarp + warp*hetcclCudaShmemScratchWarpSize();
 }
 
 __device__ inline bool barrierReduceAny(int bit) {
@@ -70,7 +70,7 @@ inline __device__ void copyToShmem16(int tid, void* dst, void const* src, int by
 
 template<ncclFunc_t Fn, typename T, typename RedOp, int Algo, int Proto>
 struct RunWorkElement {
-  __device__ void run(scclCudaWorkElem*) {
+  __device__ void run(hetcclCudaWorkElem*) {
     // Put NOT IMPLEMENTED behavior here.
   }
 };
@@ -79,21 +79,21 @@ template<ncclFunc_t Fn, typename T, typename RedOp, int Algo, int Proto>
 struct RunWork {
   // This __forceinline__ is necessary. The compiler was inserting a function call
   // here from the LL ncclKernel.
-  __device__ __forceinline__ void run(scclCudaWork *w) {
+  __device__ __forceinline__ void run(hetcclCudaWork *w) {
     int wid = threadIdx.x / CUDA_WARP_SIZE;
-    scclCudaWorkElem* we = w->header.type == ncclWorkTypeRegColl ? &w->regElems[0].elem : &w->elems[0];
-    int stride = w->header.type == ncclWorkTypeRegColl ? sizeof(scclCudaWorkElemReg) : sizeof(scclCudaWorkElem);
+    hetcclCudaWorkElem* we = w->header.type == ncclWorkTypeRegColl ? &w->regElems[0].elem : &w->elems[0];
+    int stride = w->header.type == ncclWorkTypeRegColl ? sizeof(hetcclCudaWorkElemReg) : sizeof(hetcclCudaWorkElem);
     #pragma unroll 1
     while ((char*)we + stride <= (char*)(w+1) && we->isUsed) {
       if (wid < we->nWarps) {
         RunWorkElement<Fn, T, RedOp, Algo, Proto>().run(we);
       }
-      we = (scclCudaWorkElem*)((char*)we + stride);
+      we = (hetcclCudaWorkElem*)((char*)we + stride);
     }
   }
 };
 
-static __device__ void ncclRedopPtrDeref(struct scclCudaWorkElem* we) {
+static __device__ void ncclRedopPtrDeref(struct hetcclCudaWorkElem* we) {
   if (we->isUsed && we->redOpArgIsPtr) {
     /* redOpArg is a pointer to the scalar value, so we'll dereference it
      * here so that redOpArg holds the bits of the scalar going forward.
@@ -116,7 +116,7 @@ static __device__ void ncclRedopPtrDeref(struct scclCudaWorkElem* we) {
 
 template<ncclFunc_t Fn, typename T, typename RedOp, int Algo, int Proto, int FnIndex>
 __device__ void ncclKernel(
-    struct scclCudaDevComm* comm, uint64_t channelMask, struct scclCudaWork* workHead
+    struct hetcclCudaDevComm* comm, uint64_t channelMask, struct hetcclCudaWork* workHead
   )  {
   int tid = threadIdx.x;
 
@@ -149,21 +149,21 @@ __device__ void ncclKernel(
     case 0:
       dst = &ncclShmem.comm;
       src = comm;
-      bytes = sizeof(scclCudaDevComm);
-      static_assert(sizeof(scclCudaDevComm) <= 16*CUDA_WARP_SIZE, "scclCudaDevComm cannot be loaded by a single warp in one insn.");
+      bytes = sizeof(hetcclCudaDevComm);
+      static_assert(sizeof(hetcclCudaDevComm) <= 16*CUDA_WARP_SIZE, "hetcclCudaDevComm cannot be loaded by a single warp in one insn.");
       break;
     case 1:
-      // Get address of channel without incurring indirect load from scclCudaDevComm::channels
+      // Get address of channel without incurring indirect load from hetcclCudaDevComm::channels
       dst = &ncclShmem.channel;
-      src = &((scclCudaDevCommAndChannels*)comm)->channels[channelId];
-      bytes = sizeof(scclCudaDevChannel);
-      static_assert(sizeof(scclCudaDevChannel) <= 16*CUDA_WARP_SIZE, "scclCudaDevChannel cannot be loaded by a single warp in one insn.");
+      src = &((hetcclCudaDevCommAndChannels*)comm)->channels[channelId];
+      bytes = sizeof(hetcclCudaDevChannel);
+      static_assert(sizeof(hetcclCudaDevChannel) <= 16*CUDA_WARP_SIZE, "hetcclCudaDevChannel cannot be loaded by a single warp in one insn.");
       break;
     case 2:
       dst = &ncclShmem.work;
       src = workHead + blockIdx.x;
-      bytes = sizeof(scclCudaWork);
-      static_assert(sizeof(scclCudaWork) <= 16*CUDA_WARP_SIZE, "scclCudaWork cannot be loaded by a single warp in one insn.");
+      bytes = sizeof(hetcclCudaWork);
+      static_assert(sizeof(hetcclCudaWork) <= 16*CUDA_WARP_SIZE, "hetcclCudaWork cannot be loaded by a single warp in one insn.");
       break;
     default:
       bytes = 0;
@@ -181,9 +181,9 @@ __device__ void ncclKernel(
 
     __syncwarp();
     if (ncclShmem.work.header.type == ncclWorkTypeColl) {
-      if (tid < SCCL_CUDA_MAX_WORK_ELEMENTS) ncclRedopPtrDeref(&ncclShmem.work.elems[tid]);
+      if (tid < HETCCL_CUDA_MAX_WORK_ELEMENTS) ncclRedopPtrDeref(&ncclShmem.work.elems[tid]);
     } else if (ncclShmem.work.header.type == ncclWorkTypeRegColl) {
-      if (tid < SCCL_CUDA_MAX_WORK_ELEMENTS_REG) ncclRedopPtrDeref(&ncclShmem.work.regElems[tid].elem);
+      if (tid < HETCCL_CUDA_MAX_WORK_ELEMENTS_REG) ncclRedopPtrDeref(&ncclShmem.work.regElems[tid].elem);
     }
     __syncthreads();
 
@@ -197,7 +197,7 @@ __device__ void ncclKernel(
     __syncthreads();
     if (ncclShmem.work.header.isLast) break;
 
-    copyToShmem16(tid, &ncclShmem.work, workHead + workIxNext, sizeof(scclCudaWork));
+    copyToShmem16(tid, &ncclShmem.work, workHead + workIxNext, sizeof(hetcclCudaWork));
 
     { // Check whether the last operation was aborted and make sure all threads exit
       int aborted = tid == 0 ? *comm->abortFlag : 0;
@@ -210,8 +210,8 @@ __device__ void ncclKernel(
 // Only generate kernels for SUM
 #if NCCL_OP == 0
 #define IMPL_COLL_KERN(func, algo, proto, devredop, type, fIndex) \
-__global__ void SCCL_CUDA_KERN_NAME(func, algo, proto, devredop, type)( \
-    struct scclCudaDevComm* comm, uint64_t channelMask, struct scclCudaWork* workHead \
+__global__ void HETCCL_CUDA_KERN_NAME(func, algo, proto, devredop, type)( \
+    struct hetcclCudaDevComm* comm, uint64_t channelMask, struct hetcclCudaWork* workHead \
   ) { \
   ncclKernel<ncclFunc##func, type, Func##devredop<type>, NCCL_ALGO_##algo, NCCL_PROTO_##proto, fIndex> \
     (comm, channelMask, workHead); \
@@ -222,7 +222,7 @@ __global__ void SCCL_CUDA_KERN_NAME(func, algo, proto, devredop, type)( \
 
 // Examples :     AllReduce, RING, LL,    Sum,   uint8
 #define IMPL_COLL_FUNC(func, algo, proto, devredop, type) \
-__device__ void SCCL_CUDA_FUNC_NAME(func, algo, proto, devredop, type)() { \
+__device__ void HETCCL_CUDA_FUNC_NAME(func, algo, proto, devredop, type)() { \
   RunWork<ncclFunc##func, type, Func##devredop<type>, NCCL_ALGO_##algo, NCCL_PROTO_##proto>().run(&ncclShmem.work); \
 }
 
@@ -297,7 +297,7 @@ __device__ void SCCL_CUDA_FUNC_NAME(func, algo, proto, devredop, type)() { \
 
 #define NCCL_NVLS_ENABLED (__CUDA_ARCH__ >= 900 && NCCL_NVLS_SUPPORTS(NCCL_TYPE, NCCL_OP))
 
-union scclCudaLLFifoLine {
+union hetcclCudaLLFifoLine {
   /* Flags have to be *after* data, because otherwise, an incomplete receive
      from the network may receive the flag but not the data.
      Note this is assuming that either we receive contiguous chunks of data
@@ -311,6 +311,6 @@ union scclCudaLLFifoLine {
   uint64_t v[2];
   int4 i4;
 };
-static_assert(sizeof(scclCudaLLFifoLine) == sizeof(ncclLLFifoLine), "scclCudaLLFifoLine size mismatch");
+static_assert(sizeof(hetcclCudaLLFifoLine) == sizeof(ncclLLFifoLine), "hetcclCudaLLFifoLine size mismatch");
 
 #endif

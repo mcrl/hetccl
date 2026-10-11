@@ -8,7 +8,7 @@
 #ifndef NCCL_ALLOC_H_
 #define NCCL_ALLOC_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "checks.h"
 #include "align.h"
 #include "utils.h"

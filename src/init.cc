@@ -7,7 +7,7 @@
  ************************************************************************/
 
 #include "comm.h"
-#include "sccl.h"
+#include "hetccl.h"
 #include "channel.h"
 #include "nvmlwrap.h"
 #include "gdrwrap.h"
@@ -690,8 +690,8 @@ fail:
 static ncclResult_t devCommSetupCuda(ncclComm_t comm) {
   ncclResult_t ret = ncclSuccess;
   int nRanks = comm->nRanks;
-  struct scclCudaDevCommAndChannels tmpCommAndChans;
-  struct scclCudaDevCommAndChannels *devCommAndChans = NULL;
+  struct hetcclCudaDevCommAndChannels tmpCommAndChans;
+  struct hetcclCudaDevCommAndChannels *devCommAndChans = NULL;
 
   NCCLCHECKGOTO(ncclStrongStreamAcquireUncaptured(&comm->sharedRes->deviceStream), ret, fail);
   NCCLCHECKGOTO(ncclCudaCallocAsync(&devCommAndChans, 1, comm->sharedRes->deviceStream.cudaStream), ret, fail);
@@ -714,16 +714,16 @@ static ncclResult_t devCommSetupCuda(ncclComm_t comm) {
 
   if (ncclGdrCopy != NULL && ncclParamGdrCopyFifoEnable() == 1) {
     // The workFifoHeap lives in GDR mapped CUDA memory.
-    NCCLCHECKGOTO(ncclGdrCudaCalloc((scclCudaWork**)&comm->workFifoHeap, (scclCudaWork**)&comm->devWorkFifoHeap, comm->workFifoDepth, &comm->workFifoHeapGdrHandle, comm->sideStream), ret, fail);
+    NCCLCHECKGOTO(ncclGdrCudaCalloc((hetcclCudaWork**)&comm->workFifoHeap, (hetcclCudaWork**)&comm->devWorkFifoHeap, comm->workFifoDepth, &comm->workFifoHeapGdrHandle, comm->sideStream), ret, fail);
     ncclCommPushCudaGdrFree(comm, comm->workFifoHeapGdrHandle);
   } else {
     // The workFifoHeap lives in cudaHost memory.
     comm->workFifoHeapGdrHandle = nullptr;
-    NCCLCHECKGOTO(ncclCudaHostCalloc((scclCudaWork**)&comm->workFifoHeap, comm->workFifoDepth), ret, fail);
+    NCCLCHECKGOTO(ncclCudaHostCalloc((hetcclCudaWork**)&comm->workFifoHeap, comm->workFifoDepth), ret, fail);
     ncclCommPushCudaHostFree(comm, comm->workFifoHeap);
     comm->devWorkFifoHeap = comm->workFifoHeap;
   }
-  tmpCommAndChans.comm.workFifoHeap = (scclCudaWork*)comm->devWorkFifoHeap;
+  tmpCommAndChans.comm.workFifoHeap = (hetcclCudaWork*)comm->devWorkFifoHeap;
 
   NCCLCHECKGOTO(ncclCudaHostCalloc(&comm->workFifoDone, MAXCHANNELS), ret, fail);
   ncclCommPushCudaHostFree(comm, comm->workFifoDone);
@@ -731,7 +731,7 @@ static ncclResult_t devCommSetupCuda(ncclComm_t comm) {
   comm->workFifoAckdMin = 0;
 
   for (int c=0; c < MAXCHANNELS; c++) {
-    tmpCommAndChans.channels[c].peers = (scclCudaDevChannelPeer**)comm->channels[c].devPeers;
+    tmpCommAndChans.channels[c].peers = (hetcclCudaDevChannelPeer**)comm->channels[c].devPeers;
     tmpCommAndChans.channels[c].ring = comm->channels[c].ring;
     tmpCommAndChans.channels[c].ring.userRanks = comm->channels[c].devRingUserRanks;
     tmpCommAndChans.channels[c].tree = comm->channels[c].tree;
@@ -2045,7 +2045,7 @@ static ncclResult_t ncclCommInitRankDev(ncclComm_t* newcomm, int nranks, ncclUni
   NCCLCHECKGOTO(ncclCalloc(&comm, 1), res, fail);
   // Set comm->platform ASAP
   TACCCHECK(taccGetPlatform(&comm->platform));
-  NCCLCHECKGOTO(scclPluginInit(comm, comm->platform), res, fail);
+  NCCLCHECKGOTO(hetcclPluginInit(comm, comm->platform), res, fail);
   NCCLCHECKGOTO(ncclCudaHostCalloc((uint32_t**)&comm->abortFlag, 1), res, fail);
   NCCLCHECKGOTO(ncclCalloc((uint32_t**)&comm->abortFlagRefCount, 1), res, fail);
   *comm->abortFlagRefCount = 1;

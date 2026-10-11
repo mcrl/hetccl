@@ -6,7 +6,7 @@ HETCCL_HOME=${HETCCL_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 BEGIN_SIZE=1K
 END_SIZE=1G
 TEST_BIN=$HETCCL_HOME/tools/hetccl-tests/build/sendrecv_perf
-LIB_PATH=$HETCCL_HOME/build/libsccl.so
+LIB_PATH=$HETCCL_HOME/build/libhetccl.so
 LD_PATH_EXTRA=$HETCCL_HOME/build:$HETCCL_HOME/build/deps/tacc:$HETCCL_HOME/tools/hetccl-tests/build
 MPIRUN=${MPIRUN:-mpirun}
 

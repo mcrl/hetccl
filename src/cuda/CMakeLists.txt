@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(sccl_cuda CXX)
+project(hetccl_cuda CXX)
 
 function(expand_collectives_cuda)
   message(STATUS "expanding collectives_cuda")
@@ -71,22 +71,22 @@ list(APPEND SRC_CUDA_DEV_FILES ${CMAKE_SOURCE_DIR}/collectives/device/functions.
 list(APPEND SRC_CUDA_DEV_FILES ${CMAKE_SOURCE_DIR}/collectives/device/onerank_reduce.cu)
 list(APPEND SRC_CUDA_DEV_FILES ${CMAKE_SOURCE_DIR}/kernels.cc)
 apply_cuda_properties()
-add_library(sccl_cuda SHARED ${SRC_CUDA_DEV_FILES})
-target_compile_options(sccl_cuda PRIVATE --compiler-options=-fPIC)
+add_library(hetccl_cuda SHARED ${SRC_CUDA_DEV_FILES})
+target_compile_options(hetccl_cuda PRIVATE --compiler-options=-fPIC)
 # https://stackoverflow.com/questions/69061997/cuda-separable-compilation-shared-libraries-invalid-device-function-segfa
 # https://cmake.org/cmake/help/v3.22/command/target_compile_options.html#option-de-duplication
-#target_compile_options(sccl_cuda PRIVATE "SHELL:-Xcompiler -fvisibility=hidden")
-set_target_properties(sccl_cuda PROPERTIES LINKER_LANGUAGE CXX)
-set_target_properties(sccl_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+#target_compile_options(hetccl_cuda PRIVATE "SHELL:-Xcompiler -fvisibility=hidden")
+set_target_properties(hetccl_cuda PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(hetccl_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 # Passing flags to device link step is not supported in cmake 3.16.3
 # The following is a workaround to pass flags to device link step
 # https://gitlab.kitware.com/cmake/cmake/-/issues/18265
 # It is also passed to the compile step
 # tesla v100 = 70, tesla a100 = 80, rtx a5000 = 86
 list(APPEND CMAKE_CUDA_FLAGS "-gencode=arch=compute_70,code=compute_70")
-target_include_directories(sccl_cuda PRIVATE ${CMAKE_SOURCE_DIR}/collectives/device)
-target_include_directories(sccl_cuda PRIVATE ${SCCL_SOURCE_DIR}/src/include)
-target_include_directories(sccl_cuda PRIVATE ${SCCL_BINARY_DIR}/include)
-target_include_directories(sccl_cuda PRIVATE ${SCCL_SOURCE_DIR}/deps/tacc/include)
+target_include_directories(hetccl_cuda PRIVATE ${CMAKE_SOURCE_DIR}/collectives/device)
+target_include_directories(hetccl_cuda PRIVATE ${HETCCL_SOURCE_DIR}/src/include)
+target_include_directories(hetccl_cuda PRIVATE ${HETCCL_BINARY_DIR}/include)
+target_include_directories(hetccl_cuda PRIVATE ${HETCCL_SOURCE_DIR}/deps/tacc/include)
 
-install(TARGETS sccl_cuda DESTINATION ${SCCL_BINARY_DIR})
+install(TARGETS hetccl_cuda DESTINATION ${HETCCL_BINARY_DIR})

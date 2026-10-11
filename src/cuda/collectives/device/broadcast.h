@@ -10,7 +10,7 @@
 
 namespace {
   template<typename T, typename RedOp, typename Proto>
-  __device__ __forceinline__ void runRing(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void runRing(hetcclCudaWorkElem *args) {
     const int tid = threadIdx.x;
     const int nthreads = args->nWarps*CUDA_WARP_SIZE;
     const int bid = args->bid;
@@ -61,7 +61,7 @@ namespace {
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncBroadcast, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     using Proto = ProtoSimple<BROADCAST_CHUNKSTEPS/BROADCAST_SLICESTEPS, BROADCAST_SLICESTEPS>;
     runRing<T, RedOp, Proto>(args);
   }
@@ -69,14 +69,14 @@ struct RunWorkElement<ncclFuncBroadcast, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncBroadcast, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_LL> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     runRing<T, RedOp, ProtoLL>(args);
   }
 };
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncBroadcast, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_LL128> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     runRing<T, RedOp, ProtoLL128>(args);
   }
 };

@@ -7,7 +7,7 @@
 #ifndef COLL_NET_H_
 #define COLL_NET_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "nccl_net.h"
 
 typedef char collNetHandle_t[NCCL_NET_HANDLE_MAXSIZE];

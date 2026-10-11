@@ -4,7 +4,7 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#include "sccl.h"
+#include "hetccl.h"
 
 #define RANK_TO_INDEX(r) (rank > root ? rank-1 : rank)
 

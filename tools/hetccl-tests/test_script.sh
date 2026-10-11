@@ -8,8 +8,8 @@
 
 # [Execution with MPI]
 # mpirun -mca btl ^openib -mca pml ucx --bind-to none -H em02:1,v00:1 \
-#   -x LD_PRELOAD=$HOME/samccl-ws/samccl/build/libsccl.so \
-#   -x LD_LIBRARY_PATH=$HOME/samccl-ws/samccl/build:$HOME/samccl-ws/samccl/tools/sccl-tests/build:$LD_LIBRARY_PATH \
+#   -x LD_PRELOAD=$HOME/hetccl-ws/hetccl/build/libhetccl.so \
+#   -x LD_LIBRARY_PATH=$HOME/hetccl-ws/hetccl/build:$HOME/hetccl-ws/hetccl/tools/hetccl-tests/build:$LD_LIBRARY_PATH \
 #   -x NCCL_DEBUG=TRACE \
 #   -x NCCL_DEBUG_SUBSYS=ALL \
 #   ./all_reduce_perf -b 8 -e 128M -f 2 -g 1 -w 1 -n 3
@@ -19,8 +19,8 @@ export OMPI_MCA_btl=^openib
 export OMPI_MCA_pml=ucx
 export OMPI_MCA_hwloc_base_binding_policy=none
 
-export LD_PRELOAD=$HOME/samccl-ws/samccl/build/libsccl.so
-export LD_LIBRARY_PATH=$HOME/samccl-ws/samccl/build:$HOME/samccl-ws/samccl/tools/sccl-tests/build:$LD_LIBRARY_PATH
+export LD_PRELOAD=$HOME/hetccl-ws/hetccl/build/libhetccl.so
+export LD_LIBRARY_PATH=$HOME/hetccl-ws/hetccl/build:$HOME/hetccl-ws/hetccl/tools/hetccl-tests/build:$LD_LIBRARY_PATH
 
 # VERSION - Prints the NCCL version at the start of the program.
 # WARN - Prints an explicit error message whenever any NCCL call errors out.

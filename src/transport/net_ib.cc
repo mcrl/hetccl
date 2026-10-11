@@ -5,7 +5,7 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "core.h"
 #include "socket.h"
 #include "net.h"

@@ -12,7 +12,7 @@
 
 __shared__ ncclShmemData ncclShmem;
 #if __CUDA_ARCH__ < 700
-  __shared__ ulong2 ncclShmemPerWarp[scclHipShmemScratchWarpSize()*(SCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE)/sizeof(ulong2)];
+  __shared__ ulong2 ncclShmemPerWarp[hetcclHipShmemScratchWarpSize()*(HETCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE)/sizeof(ulong2)];
 #endif
 
 // Workaround for https://reviews.llvm.org/D55580

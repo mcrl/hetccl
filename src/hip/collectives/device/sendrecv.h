@@ -187,7 +187,7 @@ struct RunWork<ncclFuncSendRecv, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
     // warps for send, 2 warps for recv).
     // warpStarts were rounded thanks to int division, but for group number we need to round the other way around
     // So we mirror wid then mirror again the group.
-    #define NWARPS (SCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE)
+    #define NWARPS (HETCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE)
     uint8_t group = ngroups-1- (NWARPS-1-wid) * ngroups / NWARPS;
     args += group;
     tid -= args->warpStart * HIP_WARP_SIZE;

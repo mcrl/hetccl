@@ -7,7 +7,7 @@
 #include "ibvcore.h"
 #endif
 
-#include "sccl.h"
+#include "hetccl.h"
 
 /* IB Verbs Function Pointers*/
 struct ncclIbvSymbols {

@@ -16,17 +16,17 @@
 
 #define HIP_WARP_SIZE warpSize
 
-constexpr int scclHipCollUnroll(int cudaArch = NCCL_CUDA_ARCH) {
+constexpr int hetcclHipCollUnroll(int cudaArch = NCCL_CUDA_ARCH) {
   // Our collective unroll should move to the same bytes&insns model as NVLS.
   return cudaArch >= 800 ? 8 : 4;
 }
 
 // The amount of dynamic shmem per warp
-constexpr int scclHipShmemScratchWarpSize(int cudaArch = NCCL_CUDA_ARCH) {
+constexpr int hetcclHipShmemScratchWarpSize(int cudaArch = NCCL_CUDA_ARCH) {
   return (max_constexpr<int>(
       /*LL    */0,
       /*LL128 */(NCCL_LL128_SHMEM_ELEMS_PER_THREAD*HIP_WARP_SIZE)*sizeof(uint64_t),
-      /*SIMPLE*/(scclHipCollUnroll(cudaArch)*HIP_WARP_SIZE + 1)*16,
+      /*SIMPLE*/(hetcclHipCollUnroll(cudaArch)*HIP_WARP_SIZE + 1)*16,
       // NVLS needs an extra 16B to read unaligned data.
       /*NVLS  */HIP_WARP_SIZE*(cudaArch >= 900 ? 64 : 0) + 16
     ) + 15) & -16; // pad to 16 bytes

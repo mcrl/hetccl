@@ -8,8 +8,8 @@ export OMPI_MCA_pml=ucx
 export OMPI_MCA_btl=^openib
 export OMPI_MCA_hwloc_base_binding_policy=none
 
-export LD_PRELOAD=$HOME/samccl-ws/samccl/build/libsccl.so
-export LD_LIBRARY_PATH=$HOME/samccl-ws/samccl/build:$HOME/samccl-ws/samccl/tools/sccl-tests/build:$LD_LIBRARY_PATH
+export LD_PRELOAD=$HOME/hetccl-ws/hetccl/build/libhetccl.so
+export LD_LIBRARY_PATH=$HOME/hetccl-ws/hetccl/build:$HOME/hetccl-ws/hetccl/tools/hetccl-tests/build:$LD_LIBRARY_PATH
 
 # export NCCL_DEBUG=INFO
 # export NCCL_DEBUG_SUBSYS=ALL

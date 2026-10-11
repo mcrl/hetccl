@@ -7,7 +7,7 @@
 #ifndef NCCL_INT_NET_H_
 #define NCCL_INT_NET_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "nccl_net.h"
 #include "comm.h"
 #include "checks.h"

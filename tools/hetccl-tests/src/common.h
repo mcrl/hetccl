@@ -9,7 +9,7 @@
 #define __COMMON_H__
 
 #include "tacc.h"
-#include "sccl.h"
+#include "hetccl.h"
 #include "rccl/rccl.h"
 #include <stdio.h>
 #include <cstdint>

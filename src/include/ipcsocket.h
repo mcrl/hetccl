@@ -7,7 +7,7 @@
 #ifndef NCCL_IPCSOCKET_H
 #define NCCL_IPCSOCKET_H
 
-#include "sccl.h"
+#include "hetccl.h"
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/mman.h>

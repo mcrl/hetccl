@@ -6,7 +6,7 @@
  ************************************************************************/
 
 #include "enqueue.h"
-#include "sccl.h"
+#include "hetccl.h"
 
 #include "msccl/msccl_lifecycle.h"
 

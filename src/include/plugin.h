@@ -2,4 +2,4 @@
 
 #include "ext_plugin.h"
 
-ncclResult_t scclPluginInit(ncclComm_t comm, taccPlatform backend);
+ncclResult_t hetcclPluginInit(ncclComm_t comm, taccPlatform backend);

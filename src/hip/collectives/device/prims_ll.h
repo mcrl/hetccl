@@ -51,8 +51,8 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
 
   uint64_t recvStep[MaxRecv];
   uint64_t sendStep[MaxSend];
-  union scclHipLLFifoLine* recvBuff[MaxRecv];
-  union scclHipLLFifoLine* sendBuff[MaxSend];
+  union hetcclHipLLFifoLine* recvBuff[MaxRecv];
+  union hetcclHipLLFifoLine* sendBuff[MaxSend];
 
 #if defined(ENABLE_NPKIT)
 public:
@@ -72,8 +72,8 @@ private:
 
   inline __device__ int recvOffset(int i) { return (recvStep[i]%NCCL_STEPS)*stepLines; }
   inline __device__ int sendOffset(int i) { return (sendStep[i]%NCCL_STEPS)*stepLines; }
-  inline __device__ union scclHipLLFifoLine* recvPtr(int i) { return recvBuff[i]+recvOffset(i); }
-  inline __device__ union scclHipLLFifoLine* sendPtr(int i) { return sendBuff[i]+sendOffset(i); }
+  inline __device__ union hetcclHipLLFifoLine* recvPtr(int i) { return recvBuff[i]+recvOffset(i); }
+  inline __device__ union hetcclHipLLFifoLine* sendPtr(int i) { return sendBuff[i]+sendOffset(i); }
   inline __device__ uint32_t recvFlag(int i) { return NCCL_LL_FLAG(recvStep[i]+1); }
   inline __device__ uint32_t sendFlag(int i) { return NCCL_LL_FLAG(sendStep[i]+1); }
 
@@ -116,7 +116,7 @@ private:
       }
       __asm__ __volatile__("s_wakeup");
       if (sendConnFifoPtr) {
-        int size = ((sendConnHead & NCCL_LL_CLEAN_MASK) == NCCL_LL_CLEAN_MASK) ? stepLines*sizeof(union scclHipLLFifoLine) : nbytes;
+        int size = ((sendConnHead & NCCL_LL_CLEAN_MASK) == NCCL_LL_CLEAN_MASK) ? stepLines*sizeof(union hetcclHipLLFifoLine) : nbytes;
         __atomic_store_n(sendConnFifoPtr+sendConnHead%NCCL_STEPS, (size), __ATOMIC_SEQ_CST);
       }
       sendConnHead += 1;
@@ -148,7 +148,7 @@ private:
   }
 
   __device__ uint64_t readLL(int offset, int i) {
-    union scclHipLLFifoLine* src = recvPtr(i) + offset;
+    union hetcclHipLLFifoLine* src = recvPtr(i) + offset;
     uint32_t flag = recvFlag(i);
     uint32_t data1, flag1, data2, flag2;
     int spins = 0;
@@ -161,7 +161,7 @@ private:
 #endif
 
 #if 1 //defined(__HIP_PLATFORM_HCC__) || defined(__HCC__) || defined(__HIPCC__)
-    union scclHipLLFifoLine i4;
+    union hetcclHipLLFifoLine i4;
     do {
       i4.v[0] = LL_LOAD(src->v);
       i4.v[1] = LL_LOAD(src->v+1);
@@ -193,11 +193,11 @@ private:
   }
 
   template<int BeginIx>
-  __device__ void readLLBeginAll(int offset, scclHipLLFifoLine(&line)[MaxRecv]) {
+  __device__ void readLLBeginAll(int offset, hetcclHipLLFifoLine(&line)[MaxRecv]) {
     #pragma unroll
     for (int i=BeginIx; i < MaxRecv; i++) {
       if (i < fan.nrecv()) {
-        union scclHipLLFifoLine* src = recvPtr(i) + offset;
+        union hetcclHipLLFifoLine* src = recvPtr(i) + offset;
 #if 1 //defined(__HIP_PLATFORM_HCC__) || defined(__HCC__) || defined(__HIPCC__)
         line[i].v[0] = LL_LOAD(src->v);
         line[i].v[1] = LL_LOAD(src->v+1);
@@ -207,8 +207,8 @@ private:
       }
     }
   }
-  __device__ uint64_t readLLFinish(int offset, scclHipLLFifoLine(&line)[MaxRecv], int i) {
-    union scclHipLLFifoLine* src = recvPtr(i) + offset;
+  __device__ uint64_t readLLFinish(int offset, hetcclHipLLFifoLine(&line)[MaxRecv], int i) {
+    union hetcclHipLLFifoLine* src = recvPtr(i) + offset;
     uint32_t flag = recvFlag(i);
     int spins = 0;
 
@@ -243,9 +243,9 @@ private:
     return val64;
   }
 
-  __device__ void storeLL(union scclHipLLFifoLine* dst, uint64_t val, uint32_t flag) {
+  __device__ void storeLL(union hetcclHipLLFifoLine* dst, uint64_t val, uint32_t flag) {
 #if 1 //defined(__HIP_PLATFORM_HCC__) || defined(__HCC__) || defined(__HIPCC__)
-    union scclHipLLFifoLine i4;
+    union hetcclHipLLFifoLine i4;
     i4.data1 = val & 0xffffffff;
     i4.flag1 = flag;
     i4.data2 = (val >> 32);
@@ -394,7 +394,7 @@ private:
 
     // Always waitSend in case of cleanup
     nelem = nelem < 0 ? 0 : nelem;
-    if (SEND) waitSend(divUp(nelem, EltPerLine)*sizeof(scclHipLLFifoLine));
+    if (SEND) waitSend(divUp(nelem, EltPerLine)*sizeof(hetcclHipLLFifoLine));
 
 #if defined(ENABLE_NPKIT) && defined(ENABLE_NPKIT_EVENT_PRIM_LL_DATA_PROCESS_ENTRY) && defined(ENABLE_NPKIT_EVENT_PRIM_LL_DATA_PROCESS_EXIT)
     if (tid == 0) {
@@ -421,7 +421,7 @@ private:
       int eltInLine = EltPerLine < nelem ? EltPerLine : nelem;
 
       DataLoader dl;
-      scclHipLLFifoLine line[MaxRecv];
+      hetcclHipLLFifoLine line[MaxRecv];
       uint64_t data, peerData;
       if (SRC) {
         dl.loadBegin(srcElts, eltInLine);
@@ -565,7 +565,7 @@ private:
   }
 
   __device__ __forceinline__ void loadRecvConn(struct ncclConnInfo* conn, int i) {
-    recvBuff[i] = (union scclHipLLFifoLine*)conn->buffs[NCCL_PROTO_LL];
+    recvBuff[i] = (union hetcclHipLLFifoLine*)conn->buffs[NCCL_PROTO_LL];
     recvStep[i] = conn->step;
     if (wid == i) recvConn = conn;
   }
@@ -577,7 +577,7 @@ private:
   }
 
   __device__ __forceinline__ void loadSendConn(struct ncclConnInfo* conn, int i) {
-    sendBuff[i] = (union scclHipLLFifoLine*)conn->buffs[NCCL_PROTO_LL];
+    sendBuff[i] = (union hetcclHipLLFifoLine*)conn->buffs[NCCL_PROTO_LL];
     sendStep[i] = conn->step;
     if (wid == i) sendConn = conn;
   }
@@ -598,7 +598,7 @@ private:
     ):
     redOp(redOpArg),
     tid(tid), nthreads(nthreads), wid(tid%HIP_WARP_SIZE), group(group),
-    stepLines(ncclShmem.comm.buffSizes[NCCL_PROTO_LL]/NCCL_STEPS/sizeof(scclHipLLFifoLine)) {
+    stepLines(ncclShmem.comm.buffSizes[NCCL_PROTO_LL]/NCCL_STEPS/sizeof(hetcclHipLLFifoLine)) {
     auto *channel = &ncclShmem.channel;
     barriers = &ncclShmem.groups[group].barrier;
     barrier_next = ncclShmem.groups[group].barrier_next;

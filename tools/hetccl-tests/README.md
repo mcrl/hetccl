@@ -1,6 +1,6 @@
-# SCCL Tests
+# HETCCL Tests
 
-Tests for evaluating performance and the correctness of SCCL operations.
+Tests for evaluating performance and the correctness of HETCCL operations.
 
 ## Build
 
@@ -16,8 +16,8 @@ make -j `nproc` |& tee ../make.log
 
 ```bash
 mpirun -mca btl ^openib -mca pml ucx -H <hosts> \
-  -x LD_PRELOAD=$HOME/samccl-ws/samccl/build/libsccl.so \
-  -x LD_LIBRARY_PATH=$HOME/samccl-ws/samccl/build:$HOME/samccl-ws/samccl/tools/samccl-tests/build:$LD_LIBRARY_PATH \
+  -x LD_PRELOAD=$HOME/hetccl-ws/hetccl/build/libhetccl.so \
+  -x LD_LIBRARY_PATH=$HOME/hetccl-ws/hetccl/build:$HOME/hetccl-ws/hetccl/tools/hetccl-tests/build:$LD_LIBRARY_PATH \
   /path/to/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
 ```
 

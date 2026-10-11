@@ -7,7 +7,7 @@
 #ifndef NCCL_BOOTSTRAP_H_
 #define NCCL_BOOTSTRAP_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "comm.h"
 
 struct ncclBootstrapHandle {

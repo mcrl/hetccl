@@ -21,11 +21,11 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
   const int stepLines;
   Fan fan;
   T *userBufs[2];
-  struct scclCudaConnInfo* recvConn = NULL;
+  struct hetcclCudaConnInfo* recvConn = NULL;
   volatile uint64_t* recvConnHeadPtr = NULL;
   uint64_t recvConnHead;
 
-  struct scclCudaConnInfo* sendConn = NULL;
+  struct hetcclCudaConnInfo* sendConn = NULL;
   volatile int* sendConnFifoPtr = NULL;
   volatile uint64_t* sendConnHeadPtr = NULL;
   uint64_t sendConnHead;
@@ -33,13 +33,13 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
 
   uint64_t recvStep[MaxRecv];
   uint64_t sendStep[MaxSend];
-  union scclCudaLLFifoLine* recvBuff[MaxRecv];
-  union scclCudaLLFifoLine* sendBuff[MaxSend];
+  union hetcclCudaLLFifoLine* recvBuff[MaxRecv];
+  union hetcclCudaLLFifoLine* sendBuff[MaxSend];
 
   inline __device__ int recvOffset(int i) { return (recvStep[i]%NCCL_STEPS)*stepLines; }
   inline __device__ int sendOffset(int i) { return (sendStep[i]%NCCL_STEPS)*stepLines; }
-  inline __device__ union scclCudaLLFifoLine* recvPtr(int i) { return recvBuff[i]+recvOffset(i); }
-  inline __device__ union scclCudaLLFifoLine* sendPtr(int i) { return sendBuff[i]+sendOffset(i); }
+  inline __device__ union hetcclCudaLLFifoLine* recvPtr(int i) { return recvBuff[i]+recvOffset(i); }
+  inline __device__ union hetcclCudaLLFifoLine* sendPtr(int i) { return sendBuff[i]+sendOffset(i); }
   inline __device__ uint32_t recvFlag(int i) { return NCCL_LL_FLAG(recvStep[i]+1); }
   inline __device__ uint32_t sendFlag(int i) { return NCCL_LL_FLAG(sendStep[i]+1); }
 
@@ -69,7 +69,7 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
         if (checkAbort(spins, 1)) break;
       }
       if (sendConnFifoPtr) {
-        int size = ((sendConnHead & NCCL_LL_CLEAN_MASK) == NCCL_LL_CLEAN_MASK) ? stepLines*sizeof(union scclCudaLLFifoLine) : nbytes;
+        int size = ((sendConnHead & NCCL_LL_CLEAN_MASK) == NCCL_LL_CLEAN_MASK) ? stepLines*sizeof(union hetcclCudaLLFifoLine) : nbytes;
         sendConnFifoPtr[sendConnHead%NCCL_STEPS] = size;
       }
       sendConnHead += 1;
@@ -95,7 +95,7 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
   }
 
   __device__ uint64_t readLL(int offset, int i) {
-    union scclCudaLLFifoLine* src = recvPtr(i) + offset;
+    union hetcclCudaLLFifoLine* src = recvPtr(i) + offset;
     uint32_t flag = recvFlag(i);
     uint32_t data1, flag1, data2, flag2;
     int spins = 0;
@@ -108,17 +108,17 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
   }
 
   template<int BeginIx>
-  __device__ void readLLBeginAll(int offset, scclCudaLLFifoLine(&line)[MaxRecv]) {
+  __device__ void readLLBeginAll(int offset, hetcclCudaLLFifoLine(&line)[MaxRecv]) {
     #pragma unroll
     for (int i=BeginIx; i < MaxRecv; i++) {
       if (i < fan.nrecv()) {
-        union scclCudaLLFifoLine* src = recvPtr(i) + offset;
+        union hetcclCudaLLFifoLine* src = recvPtr(i) + offset;
         asm("ld.volatile.global.v4.u32 {%0,%1,%2,%3}, [%4];" : "=r"(line[i].data1), "=r"(line[i].flag1), "=r"(line[i].data2), "=r"(line[i].flag2) : "l"(&src->i4));
       }
     }
   }
-  __device__ uint64_t readLLFinish(int offset, scclCudaLLFifoLine(&line)[MaxRecv], int i) {
-    union scclCudaLLFifoLine* src = recvPtr(i) + offset;
+  __device__ uint64_t readLLFinish(int offset, hetcclCudaLLFifoLine(&line)[MaxRecv], int i) {
+    union hetcclCudaLLFifoLine* src = recvPtr(i) + offset;
     uint32_t flag = recvFlag(i);
     int spins = 0;
     while (line[i].flag1 != flag || line[i].flag2 != flag) {
@@ -129,7 +129,7 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
     return val64;
   }
 
-  __device__ void storeLL(union scclCudaLLFifoLine* dst, uint64_t val, uint32_t flag) {
+  __device__ void storeLL(union hetcclCudaLLFifoLine* dst, uint64_t val, uint32_t flag) {
     asm volatile("st.volatile.global.v4.u32 [%0], {%1,%2,%3,%4};" :: "l"(&dst->i4), "r"((uint32_t)val), "r"(flag), "r"((uint32_t)(val >> 32)), "r"(flag));
   }
 
@@ -232,7 +232,7 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
 
     // Always waitSend in case of cleanup
     nelem = nelem < 0 ? 0 : nelem;
-    if (SEND) waitSend(divUp(nelem, EltPerLine)*sizeof(scclCudaLLFifoLine));
+    if (SEND) waitSend(divUp(nelem, EltPerLine)*sizeof(hetcclCudaLLFifoLine));
 
     nelem -= tid*EltPerLine;
     srcElts += tid*EltPerLine;
@@ -243,7 +243,7 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
       int eltInLine = EltPerLine < nelem ? EltPerLine : nelem;
 
       DataLoader dl;
-      scclCudaLLFifoLine line[MaxRecv];
+      hetcclCudaLLFifoLine line[MaxRecv];
       uint64_t data, peerData;
       if (SRC) {
         dl.loadBegin(srcElts, eltInLine);
@@ -293,8 +293,8 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
     }
   }
 
-  __device__ __forceinline__ void loadRecvConn(struct scclCudaConnInfo* conn, int i) {
-    recvBuff[i] = (union scclCudaLLFifoLine*)conn->buffs[NCCL_PROTO_LL];
+  __device__ __forceinline__ void loadRecvConn(struct hetcclCudaConnInfo* conn, int i) {
+    recvBuff[i] = (union hetcclCudaLLFifoLine*)conn->buffs[NCCL_PROTO_LL];
     recvStep[i] = conn->step;
     if (wid == i) recvConn = conn;
   }
@@ -305,8 +305,8 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
     }
   }
 
-  __device__ __forceinline__ void loadSendConn(struct scclCudaConnInfo* conn, int i) {
-    sendBuff[i] = (union scclCudaLLFifoLine*)conn->buffs[NCCL_PROTO_LL];
+  __device__ __forceinline__ void loadSendConn(struct hetcclCudaConnInfo* conn, int i) {
+    sendBuff[i] = (union hetcclCudaLLFifoLine*)conn->buffs[NCCL_PROTO_LL];
     sendStep[i] = conn->step;
     if (wid == i) sendConn = conn;
   }
@@ -327,7 +327,7 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL, P2p>:
     ):
     redOp(redOpArg),
     tid(tid), nthreads(nthreads), wid(tid%CUDA_WARP_SIZE), group(group),
-    stepLines(ncclShmem.comm.buffSizes[NCCL_PROTO_LL]/NCCL_STEPS/sizeof(scclCudaLLFifoLine)) {
+    stepLines(ncclShmem.comm.buffSizes[NCCL_PROTO_LL]/NCCL_STEPS/sizeof(hetcclCudaLLFifoLine)) {
     auto *channel = &ncclShmem.channel;
     // If we are going to support oneshot collNet + LL, then we would need to add connector index here
     int nrecv=0, nsend=0;

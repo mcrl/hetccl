@@ -5,7 +5,7 @@
  * See LICENSE.txt for license information
  ************************************************************************/
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "debug.h"
 #include "rocmwrap.h"
 #include "hsa/hsa.h"

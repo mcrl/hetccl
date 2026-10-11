@@ -8,7 +8,7 @@
 #ifndef NCCL_INFO_H_
 #define NCCL_INFO_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "devcomm.h"
 #include "collectives.h"
 #include "core.h"

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(CMAKE_CXX_COMPILER /opt/rocm/bin/hipcc)
-project(sccl_hip CXX)
+project(hetccl_hip CXX)
 
 # Default GPU architectures to build
 #==================================================================================================
@@ -285,11 +285,11 @@ else()
   endif()
 endif()
 
-add_library(sccl_hip SHARED ${SRC_DEV_FILES})
+add_library(hetccl_hip SHARED ${SRC_DEV_FILES})
 
 ## Set RCCL include directories
-list(APPEND RCCL_INCLUDE_DIRS ${SCCL_SOURCE_DIR}/src/include)
-list(APPEND RCCL_INCLUDE_DIRS ${SCCL_BINARY_DIR}/include)        # for generated rccl.h header
+list(APPEND RCCL_INCLUDE_DIRS ${HETCCL_SOURCE_DIR}/src/include)
+list(APPEND RCCL_INCLUDE_DIRS ${HETCCL_BINARY_DIR}/include)        # for generated rccl.h header
 list(APPEND RCCL_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/collectives/device)
 
 ## Set RCCL compile definitions
@@ -393,7 +393,7 @@ if (HAVE_KERNARG_PRELOAD)
 endif()
 
 list(APPEND RCCL_LINK_LIBS   Threads::Threads)
-target_link_libraries(sccl_hip INTERFACE hip::host)
+target_link_libraries(hetccl_hip INTERFACE hip::host)
 list(APPEND RCCL_LINK_LIBS   hip::device)
 list(APPEND RCCL_LINK_LIBS   dl)
 list(APPEND RCCL_LINK_LIBS   ${ROCM_SMI_LIBRARIES})
@@ -405,13 +405,13 @@ list(APPEND RCCL_LINK_LIBS   ${ROCM_SMI_LIBRARIES})
 # Debug
 #list(APPEND RCCL_COMPILE_OPTS -g)
 
-# Apply settings to sccl_hip
-target_include_directories(sccl_hip PRIVATE ${RCCL_INCLUDE_DIRS})
-target_include_directories(sccl_hip PRIVATE ${SCCL_SOURCE_DIR}/deps/tacc/include)
-target_compile_definitions(sccl_hip PRIVATE ${RCCL_COMPILE_DEFS})
-target_compile_options(sccl_hip PRIVATE ${RCCL_COMPILE_OPTS})
-target_link_directories(sccl_hip PRIVATE ${RCCL_LINK_DIRS})
-target_link_libraries(sccl_hip PRIVATE ${RCCL_LINK_LIBS})
-target_link_options(sccl_hip PRIVATE ${RCCL_LINK_OPTS})
+# Apply settings to hetccl_hip
+target_include_directories(hetccl_hip PRIVATE ${RCCL_INCLUDE_DIRS})
+target_include_directories(hetccl_hip PRIVATE ${HETCCL_SOURCE_DIR}/deps/tacc/include)
+target_compile_definitions(hetccl_hip PRIVATE ${RCCL_COMPILE_DEFS})
+target_compile_options(hetccl_hip PRIVATE ${RCCL_COMPILE_OPTS})
+target_link_directories(hetccl_hip PRIVATE ${RCCL_LINK_DIRS})
+target_link_libraries(hetccl_hip PRIVATE ${RCCL_LINK_LIBS})
+target_link_options(hetccl_hip PRIVATE ${RCCL_LINK_OPTS})
 
-install(TARGETS sccl_hip DESTINATION ${SCCL_BINARY_DIR})
+install(TARGETS hetccl_hip DESTINATION ${HETCCL_BINARY_DIR})

@@ -7,7 +7,7 @@
 
 #include "enqueue.h"
 #include "collectives.h"
-#include "sccl.h"
+#include "hetccl.h"
 
 #include "msccl/msccl_lifecycle.h"
 

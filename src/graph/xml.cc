@@ -15,7 +15,7 @@
 #include "xml.h"
 #include "rocm_smi_wrap.h"
 #include "archinfo.h"
-#include "sccl.h"
+#include "hetccl.h"
 
 /*******************/
 /* XML File Parser */

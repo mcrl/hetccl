@@ -6,7 +6,7 @@
 
 #include "op128.h"
 
-#define NCCL_LL128_FLAGTHREAD (SCCL_CUDA_LL128_LINEELEMS-1)
+#define NCCL_LL128_FLAGTHREAD (HETCCL_CUDA_LL128_LINEELEMS-1)
 
 template<typename T, typename RedOp, typename Fan, int Direct, int P2p>
 class Primitives<T, RedOp, Fan, Direct, ProtoLL128, P2p>:
@@ -25,11 +25,11 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL128, P2p>:
   const int group;
   Fan fan;
   T *userBufs[2];
-  struct scclCudaConnInfo* recvConn = NULL;
+  struct hetcclCudaConnInfo* recvConn = NULL;
   volatile uint64_t* recvConnHeadPtr = NULL;
   uint64_t recvConnHead;
 
-  struct scclCudaConnInfo* sendConn = NULL;
+  struct hetcclCudaConnInfo* sendConn = NULL;
   volatile int* sendConnFifoPtr = NULL;
   volatile uint64_t* sendConnTailPtr = NULL;
   uint64_t sendConnTail;
@@ -290,8 +290,8 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL128, P2p>:
     /********************** End Send ************************/
   }
 
-  static constexpr int WireWordPerSlice = CUDA_WARP_SIZE*SCCL_CUDA_LL128_SHMEM_ELEMS_PER_THREAD;
-  static constexpr int DataEltPerSlice = (WireWordPerSlice - WireWordPerSlice/SCCL_CUDA_LL128_LINEELEMS)*(sizeof(uint64_t)/sizeof(T));
+  static constexpr int WireWordPerSlice = CUDA_WARP_SIZE*HETCCL_CUDA_LL128_SHMEM_ELEMS_PER_THREAD;
+  static constexpr int DataEltPerSlice = (WireWordPerSlice - WireWordPerSlice/HETCCL_CUDA_LL128_LINEELEMS)*(sizeof(uint64_t)/sizeof(T));
 
   template <int RECV, int SEND, int SrcBuf, int DstBuf>
   __device__ __forceinline__ void GenericOp(intptr_t srcIx, intptr_t dstIx, int nelem, bool postOp) {
@@ -310,9 +310,9 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL128, P2p>:
     dstPtr += DataEltPerSlice*warp;
     while (nelem > 0) {
       const int eltInSlice = min(nelem, DataEltPerSlice);
-      uint64_t regs[SCCL_CUDA_LL128_SHMEM_ELEMS_PER_THREAD];
+      uint64_t regs[HETCCL_CUDA_LL128_SHMEM_ELEMS_PER_THREAD];
       if (SRC) loadRegsBegin(regs, srcPtr, eltInSlice);
-      recvReduceSendCopy<SCCL_CUDA_LL128_SHMEM_ELEMS_PER_THREAD, RECV, SEND, SrcBuf, DstBuf>(regs, wireOffset, postOp);
+      recvReduceSendCopy<HETCCL_CUDA_LL128_SHMEM_ELEMS_PER_THREAD, RECV, SEND, SrcBuf, DstBuf>(regs, wireOffset, postOp);
       if (DST) storeRegs(dstPtr, regs, eltInSlice);
 
       wireOffset += WireWordPerSlice*nwarps;
@@ -328,7 +328,7 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL128, P2p>:
     if (RECV) postRecv();
   }
 
-  __device__ __forceinline__ void loadRecvConn(struct scclCudaConnInfo* conn, int i) {
+  __device__ __forceinline__ void loadRecvConn(struct hetcclCudaConnInfo* conn, int i) {
     recvBuff[i] = (uint64_t*)conn->buffs[NCCL_PROTO_LL128];
     recvStep[i] = conn->step;
     if (wid == i) recvConn = conn;
@@ -340,7 +340,7 @@ class Primitives<T, RedOp, Fan, Direct, ProtoLL128, P2p>:
     }
   }
 
-  __device__ __forceinline__ void loadSendConn(struct scclCudaConnInfo* conn, int i) {
+  __device__ __forceinline__ void loadSendConn(struct hetcclCudaConnInfo* conn, int i) {
     sendBuff[i] = (uint64_t*)conn->buffs[NCCL_PROTO_LL128];
     sendStep[i] = conn->step;
     if (wid == i) sendConn = conn;

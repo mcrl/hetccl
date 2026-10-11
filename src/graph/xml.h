@@ -8,7 +8,7 @@
 #ifndef XML_H_
 #define XML_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "debug.h"
 #include "checks.h"
 #include <stdlib.h>

@@ -7,7 +7,7 @@
 #ifndef NCCL_SHM_H_
 #define NCCL_SHM_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 
 typedef void* ncclShmHandle_t;
 ncclResult_t ncclShmOpen(char* shmPath, size_t shmSize, void** shmPtr, void** devShmPtr, int refcount, ncclShmHandle_t* handle);

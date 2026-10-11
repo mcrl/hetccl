@@ -1,15 +1,15 @@
 #include "cuda/devcomm_cuda.h"
 #include "collectives_private.h"
 
-// Interfaces from SCCL
+// Interfaces from HETCCL
 #include "ext_plugin.h"
 #include "tacc.h"
 
 // Only generate inline kernels for LL
 #define NCCL_FUNC5(func, algo, devredop, dtype, specialized) \
-  /*LL    */{(void*)SCCL_CUDA_KERN_NAME(func, algo, LL, devredop, dtype), true && specialized}, \
-  /*LL128 */{(void*)SCCL_CUDA_KERN_NAME(func, algo, LL, devredop, dtype), false && specialized}, \
-  /*SIMPLE*/{(void*)SCCL_CUDA_KERN_NAME(func, algo, LL, devredop, dtype), false && specialized}
+  /*LL    */{(void*)HETCCL_CUDA_KERN_NAME(func, algo, LL, devredop, dtype), true && specialized}, \
+  /*LL128 */{(void*)HETCCL_CUDA_KERN_NAME(func, algo, LL, devredop, dtype), false && specialized}, \
+  /*SIMPLE*/{(void*)HETCCL_CUDA_KERN_NAME(func, algo, LL, devredop, dtype), false && specialized}
 
 #define NCCL_FUNC4(func, devredop, type, specialized) \
   NCCL_FUNC5(func, TREE,           devredop, type, specialized), \
@@ -59,19 +59,19 @@ static const ncclKernelMatch cudaKerns[] = {
 static const int cudaKernsCount = NCCL_NUM_ALGORITHMS * NCCL_NUM_PROTOCOLS;
 #else
 static const ncclKernelMatch cudaKerns[] = {
-  {(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), true},
+  {(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), true},
   // We don't bake special kernels for the one-rank reductions
-  {/*int8*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
-  {/*uint8*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
-  {/*int32*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
-  {/*uint32*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
-  {/*int64*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
-  {/*uint64*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
-  {/*half*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
-  {/*float*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
-  {/*double*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+  {/*int8*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+  {/*uint8*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+  {/*int32*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+  {/*uint32*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+  {/*int64*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+  {/*uint64*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+  {/*half*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+  {/*float*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+  {/*double*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
   #if HAVE_BFLOAT16
-    {/*bfloat16*/(void*)SCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
+    {/*bfloat16*/(void*)HETCCL_CUDA_KERN_NAME(SendRecv, RING, SIMPLE, Sum, int8_t), false},
   #endif
   NCCL_FUNCS2(Broadcast, /*reduction=*/0),
   NCCL_FUNCS2(Reduce, /*reduction=*/1),
@@ -86,7 +86,7 @@ static const int cudaKernsCount = 1+ncclNumTypes+NCCL_NUM_FUNCTIONS*ncclNumDevRe
 // Helper functions to prevent cross-compilation-unit kernel function references
 // Note: Somehow cuda runtime APIs that accept kernel function pointer does not work across shared library boundary
 //                so we need to wrap them with these functions. (copied from tacc)
-ncclResult_t scclCudaFuncGetLocalSizeBytesByIndex(size_t* localSizeBytes, int index) {
+ncclResult_t hetcclCudaFuncGetLocalSizeBytesByIndex(size_t* localSizeBytes, int index) {
   cudaFuncAttributes attr;
   taccError_t err = (taccError_t)cudaFuncGetAttributes(&attr, cudaKerns[index].kernelFn);
   if (err != taccSuccess) {
@@ -96,7 +96,7 @@ ncclResult_t scclCudaFuncGetLocalSizeBytesByIndex(size_t* localSizeBytes, int in
   return ncclSuccess;
 }
 
-ncclResult_t scclCudaFuncSetAttributeByIndex(int index, taccFuncAttribute attr, int value) {
+ncclResult_t hetcclCudaFuncSetAttributeByIndex(int index, taccFuncAttribute attr, int value) {
   taccError_t err = (taccError_t)cudaFuncSetAttribute(cudaKerns[index].kernelFn, (cudaFuncAttribute)attr, value);
   if (err != taccSuccess) {
     return ncclInternalError;
@@ -104,12 +104,12 @@ ncclResult_t scclCudaFuncSetAttributeByIndex(int index, taccFuncAttribute attr, 
   return ncclSuccess;
 }
 
-ncclResult_t scclCudaGetSpecializedByIndex(int index, bool* specialized) {
+ncclResult_t hetcclCudaGetSpecializedByIndex(int index, bool* specialized) {
   *specialized = cudaKerns[index].specialized;
   return ncclSuccess;
 }
 
-ncclResult_t scclCudaLaunchKernelByIndex(int index, dim3_t gridDim, dim3_t blockDim, void** args, size_t sharedMem, taccStream_t stream) {
+ncclResult_t hetcclCudaLaunchKernelByIndex(int index, dim3_t gridDim, dim3_t blockDim, void** args, size_t sharedMem, taccStream_t stream) {
   dim3 gridDim_;
   dim3 blockDim_;
   memcpy(&gridDim_, &gridDim, sizeof(gridDim_));
@@ -121,10 +121,10 @@ ncclResult_t scclCudaLaunchKernelByIndex(int index, dim3_t gridDim, dim3_t block
   return ncclSuccess;
 }
 
-scclPlugin_t scclPluginCuda = {
+hetcclPlugin_t hetcclPluginCuda = {
   .kernsCount = cudaKernsCount,
-  .funcGetLocalSizeBytesByIndex = scclCudaFuncGetLocalSizeBytesByIndex,
-  .funcSetAttributeByIndex = scclCudaFuncSetAttributeByIndex,
-  .getSpecializedByIndex = scclCudaGetSpecializedByIndex,
-  .launchKernelByIndex = scclCudaLaunchKernelByIndex
+  .funcGetLocalSizeBytesByIndex = hetcclCudaFuncGetLocalSizeBytesByIndex,
+  .funcSetAttributeByIndex = hetcclCudaFuncSetAttributeByIndex,
+  .getSpecializedByIndex = hetcclCudaGetSpecializedByIndex,
+  .launchKernelByIndex = hetcclCudaLaunchKernelByIndex
 };

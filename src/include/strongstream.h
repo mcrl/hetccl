@@ -7,7 +7,7 @@
 #ifndef NCCL_STRONGSTREAM_H_
 #define NCCL_STRONGSTREAM_H_
 
-#include "sccl.h"
+#include "hetccl.h"
 #include "checks.h"
 
 #include <stdint.h>

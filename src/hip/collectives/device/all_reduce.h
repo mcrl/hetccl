@@ -711,8 +711,8 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_NVLS, NCCL_PROTO_SI
     const bool hasOut = nvls->out != -1;
     const int reduceWarps = hasOut ? 3 : nranks <= 6 ? 7 : 5;
     const int bcastWarps = hasOut ? 2 : 0;
-    const int scatterWarps = ((SCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE) - reduceWarps - bcastWarps + 1)/2;
-    const int gatherWarps = ((SCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE) - reduceWarps - bcastWarps)/2;
+    const int scatterWarps = ((HETCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE) - reduceWarps - bcastWarps + 1)/2;
+    const int gatherWarps = ((HETCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE) - reduceWarps - bcastWarps)/2;
 
     const int nThreadsScatter = scatterWarps*HIP_WARP_SIZE;
     const int nThreadsGather  = gatherWarps*HIP_WARP_SIZE;
@@ -802,8 +802,8 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_NVLS_TREE, NCCL_PRO
     const bool hasUp = treeUp != -1;
     const int reduceWarps = hasUp ? 5 : nranks <= 6 ? 7 : 5;
     const int bcastWarps = hasUp ? 4 : 0;
-    const int scatterWarps = ((SCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE) - reduceWarps - bcastWarps + 1)/2;
-    const int gatherWarps = ((SCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE) - reduceWarps - bcastWarps)/2;
+    const int scatterWarps = ((HETCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE) - reduceWarps - bcastWarps + 1)/2;
+    const int gatherWarps = ((HETCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE) - reduceWarps - bcastWarps)/2;
 
     const int nThreadsScatter = scatterWarps*HIP_WARP_SIZE;
     const int nThreadsGather  = gatherWarps*HIP_WARP_SIZE;

@@ -11,11 +11,11 @@
 template<typename T, typename RedOp>
 struct RunWork<ncclFuncSendRecv, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
   template<typename Proto>
-  __device__ void runSend(const int tid, const int nthreads, const uint8_t group, struct scclCudaWorkElemP2p* args) {
+  __device__ void runSend(const int tid, const int nthreads, const uint8_t group, struct hetcclCudaWorkElemP2p* args) {
     void* buff = reinterpret_cast<void*>(uintptr_t(args->buffHi32)<<32 | args->buffLo32);
     ssize_t count = reinterpret_cast<size_t>(size_t(args->countHi32)<<32 | args->countLo32);
     if (args->peer == ncclShmem.comm.rank) {
-      struct scclCudaWorkElemP2p* recvArgs = args-1;
+      struct hetcclCudaWorkElemP2p* recvArgs = args-1;
       void* recvBuff = reinterpret_cast<void*>(uintptr_t(recvArgs->buffHi32)<<32 | recvArgs->buffLo32);
       if (buff != recvBuff) {
         reduceCopy<COLL_UNROLL, RedOp, T, 0,1,1, 0,1,1, /*PreOpSrcs=*/0>
@@ -37,7 +37,7 @@ struct RunWork<ncclFuncSendRecv, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
   }
 
   template<typename Proto>
-  __device__ void runRecv(const int tid, const int nthreads, const uint8_t group, struct scclCudaWorkElemP2p* args) {
+  __device__ void runRecv(const int tid, const int nthreads, const uint8_t group, struct hetcclCudaWorkElemP2p* args) {
     if (args->peer != ncclShmem.comm.rank) {
       void* buff = reinterpret_cast<void*>(uintptr_t(args->buffHi32)<<32 | args->buffLo32);
       ssize_t count = reinterpret_cast<size_t>(size_t(args->countHi32)<<32 | args->countLo32);
@@ -55,8 +55,8 @@ struct RunWork<ncclFuncSendRecv, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
     }
   }
 
-  __device__ __forceinline__ void run(scclCudaWork *work) {
-    struct scclCudaWorkElemP2p* args = work->p2pElems;
+  __device__ __forceinline__ void run(hetcclCudaWork *work) {
+    struct hetcclCudaWorkElemP2p* args = work->p2pElems;
     int ngroups = args->ngroups;
     int tid = threadIdx.x;
     int wid = tid / CUDA_WARP_SIZE;
@@ -64,7 +64,7 @@ struct RunWork<ncclFuncSendRecv, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
     // warps for send, 2 warps for recv).
     // warpStarts were rounded thanks to int division, but for group number we need to round the other way around
     // So we mirror wid then mirror again the group.
-    #define NWARPS (SCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE)
+    #define NWARPS (HETCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE)
     uint8_t group = ngroups-1- (NWARPS-1-wid) * ngroups / NWARPS;
     args += group;
     tid -= args->warpStart * CUDA_WARP_SIZE;

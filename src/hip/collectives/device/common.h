@@ -357,13 +357,13 @@ struct ncclShmemGroup {
   void* srcs[NCCL_MAX_NVLS_ARITY+1];
   void* dsts[NCCL_MAX_NVLS_ARITY+1];
   uint64_t barrier;
-  uint64_t barrier_next[SCCL_HIP_MAX_GROUPS];
+  uint64_t barrier_next[HETCCL_HIP_MAX_GROUPS];
 };
 
 #define LDS_NUM_EVENTS 64
 
 struct ncclShmemData {
-  struct ncclShmemGroup groups[SCCL_HIP_MAX_GROUPS];
+  struct ncclShmemGroup groups[HETCCL_HIP_MAX_GROUPS];
   uint64_t redOpArgs[NCCL_MAX_NVLS_ARITY+1];
   int channelId;
   int aborted;
@@ -386,13 +386,13 @@ static_assert(offsetof(struct ncclShmemData, work)%16 == 0, "ncclShmem.work need
 
 extern __shared__ ncclShmemData ncclShmem;
 #if __CUDA_ARCH__ >= 700
-  extern __shared__ ulong2 ncclShmemPerWarp[/*scclHipShmemDynamicSize()/sizeof(ulong2)*/];
+  extern __shared__ ulong2 ncclShmemPerWarp[/*hetcclHipShmemDynamicSize()/sizeof(ulong2)*/];
 #else
-  extern __shared__ ulong2 ncclShmemPerWarp[scclHipShmemScratchWarpSize()*(SCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE)/sizeof(ulong2)];
+  extern __shared__ ulong2 ncclShmemPerWarp[hetcclHipShmemScratchWarpSize()*(HETCCL_HIP_MAX_NTHREADS/HIP_WARP_SIZE)/sizeof(ulong2)];
 #endif
 
 __device__ inline void* ncclScratchForWarp(int warp) {
-  return (char*)ncclShmemPerWarp + warp*scclHipShmemScratchWarpSize();
+  return (char*)ncclShmemPerWarp + warp*hetcclHipShmemScratchWarpSize();
 }
 
 #ifdef ENABLE_PROFILING
@@ -486,12 +486,12 @@ __forceinline__ __device__ void ncclKernel(
     }
     break;
   case 1:
-    if (tid < HIP_WARP_SIZE + SCCL_HIP_MAX_GROUPS)
+    if (tid < HIP_WARP_SIZE + HETCCL_HIP_MAX_GROUPS)
       ncclShmem.groups[tid-HIP_WARP_SIZE].barrier = 0;
     break;
   case 2:
-    if (tid < 2*HIP_WARP_SIZE + SCCL_HIP_MAX_GROUPS*SCCL_HIP_MAX_GROUPS)
-      ncclShmem.groups[(tid-2*HIP_WARP_SIZE)/SCCL_HIP_MAX_GROUPS].barrier_next[(tid-2*HIP_WARP_SIZE)%SCCL_HIP_MAX_GROUPS] = 0;
+    if (tid < 2*HIP_WARP_SIZE + HETCCL_HIP_MAX_GROUPS*HETCCL_HIP_MAX_GROUPS)
+      ncclShmem.groups[(tid-2*HIP_WARP_SIZE)/HETCCL_HIP_MAX_GROUPS].barrier_next[(tid-2*HIP_WARP_SIZE)%HETCCL_HIP_MAX_GROUPS] = 0;
     break;
   case 3:
     /* set abort flag to 0 */
@@ -608,18 +608,18 @@ __forceinline__ __device__ void ncclKernel(
 
 #ifdef ENABLE_COLLTRACE
 #define IMPL_COLL_KERN(func, algo, proto, devredop, type, fIndex) \
-__launch_bounds__(SCCL_HIP_MAX_NTHREADS, 1) \
+__launch_bounds__(HETCCL_HIP_MAX_NTHREADS, 1) \
 __global__ void NCCL_KERN_NAME(func, algo, proto, devredop, type)(struct ncclDevComm* comm, uint64_t channelMask, struct ncclWork* workHead) { \
   ncclKernel<ncclFunc##func, type, Func##devredop<type>, NCCL_ALGO_##algo, NCCL_PROTO_##proto, fIndex, false>(comm, channelMask, workHead); \
 } \
  \
-__launch_bounds__(SCCL_HIP_MAX_NTHREADS, 1) \
+__launch_bounds__(HETCCL_HIP_MAX_NTHREADS, 1) \
 __global__ void NCCL_KERN_NAME_DEBUG(func, algo, proto, devredop, type)(struct ncclDevComm* comm, uint64_t channelMask, struct ncclWork* workHead) { \
   ncclKernel<ncclFunc##func, type, Func##devredop<type>, NCCL_ALGO_##algo, NCCL_PROTO_##proto, fIndex, true>(comm, channelMask, workHead); \
 }
 #else
 #define IMPL_COLL_KERN(func, algo, proto, devredop, type, fIndex) \
-__launch_bounds__(SCCL_HIP_MAX_NTHREADS, 1) \
+__launch_bounds__(HETCCL_HIP_MAX_NTHREADS, 1) \
 __global__ void NCCL_KERN_NAME(func, algo, proto, devredop, type)(struct ncclDevComm* comm, uint64_t channelMask, struct ncclWork* workHead) { \
   ncclKernel<ncclFunc##func, type, Func##devredop<type>, NCCL_ALGO_##algo, NCCL_PROTO_##proto, fIndex, false>(comm, channelMask, workHead); \
 }
@@ -703,7 +703,7 @@ __device__  __attribute__((noinline)) void NCCL_FUNC_NAME(func, algo, proto, dev
 
 #define NCCL_NVLS_ENABLED (__CUDA_ARCH__ >= 900 && NCCL_NVLS_SUPPORTS(NCCL_TYPE, NCCL_OP))
 
-union scclHipLLFifoLine {
+union hetcclHipLLFifoLine {
   /* Flags have to be *after* data, because otherwise, an incomplete receive
      from the network may receive the flag but not the data.
      Note this is assuming that either we receive contiguous chunks of data
@@ -717,6 +717,6 @@ union scclHipLLFifoLine {
   uint64_t v[2];
   int4 i4;
 };
-static_assert(sizeof(scclHipLLFifoLine) == sizeof(ncclLLFifoLine), "scclHipLLFifoLine size mismatch");
+static_assert(sizeof(hetcclHipLLFifoLine) == sizeof(ncclLLFifoLine), "hetcclHipLLFifoLine size mismatch");
 
 #endif

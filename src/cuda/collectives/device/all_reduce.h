@@ -10,7 +10,7 @@
 
 namespace {
   template<typename T, typename RedOp, typename Proto>
-  __device__ __forceinline__ void runRing(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void runRing(hetcclCudaWorkElem *args) {
     const int tid = threadIdx.x;
     const int nthreads = args->nWarps*CUDA_WARP_SIZE;
     const int bid = args->bid;
@@ -95,7 +95,7 @@ namespace {
   }
 
   template<typename T, typename RedOp, typename Proto>
-  __device__ __forceinline__ void runTreeUpDown(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void runTreeUpDown(hetcclCudaWorkElem *args) {
     const int tid = threadIdx.x;
     const int nthreads = args->nWarps*CUDA_WARP_SIZE;
     const int bid = args->bid;
@@ -167,7 +167,7 @@ namespace {
   }
 
   template<typename T, typename RedOp, typename Proto>
-  __device__ __forceinline__ void runTreeSplit(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void runTreeSplit(hetcclCudaWorkElem *args) {
     const int tid = threadIdx.x;
     const int nthreads = args->nWarps*CUDA_WARP_SIZE;
     const int bid = args->bid;
@@ -257,7 +257,7 @@ namespace {
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     using Proto = ProtoSimple<ALLREDUCE_CHUNKSTEPS/ALLREDUCE_SLICESTEPS, ALLREDUCE_SLICESTEPS>;
     runRing<T, RedOp, Proto>(args);
   }
@@ -265,7 +265,7 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_TREE, NCCL_PROTO_SIMPLE> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     #if CUDART_VERSION >= 11020 && CUDART_VERSION < 11040 && __CUDA_ARCH__ >= 800
       runTreeUpDown<T, RedOp, ProtoSimple<1, 1>>(args);
     #else
@@ -276,7 +276,7 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_TREE, NCCL_PROTO_SI
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_COLLNET_DIRECT, NCCL_PROTO_SIMPLE> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     static constexpr int COLLNET_COPY_THREADS = 96;
     const int tid = threadIdx.x;
     const int bid = args->bid;
@@ -376,7 +376,7 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_COLLNET_DIRECT, NCC
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_NVLS, NCCL_PROTO_SIMPLE> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
   #if NCCL_NVLS_ENABLED
     const int tid = threadIdx.x;
     const int bid = args->bid;
@@ -389,8 +389,8 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_NVLS, NCCL_PROTO_SI
     const bool hasOut = nvls->out != -1;
     const int reduceWarps = hasOut ? 3 : nranks <= 6 ? 7 : 5;
     const int bcastWarps = hasOut ? 2 : 0;
-    const int scatterWarps = ((SCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE) - reduceWarps - bcastWarps + 1)/2;
-    const int gatherWarps = ((SCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE) - reduceWarps - bcastWarps)/2;
+    const int scatterWarps = ((HETCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE) - reduceWarps - bcastWarps + 1)/2;
+    const int gatherWarps = ((HETCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE) - reduceWarps - bcastWarps)/2;
 
     const int nThreadsScatter = scatterWarps*CUDA_WARP_SIZE;
     const int nThreadsGather  = gatherWarps*CUDA_WARP_SIZE;
@@ -465,7 +465,7 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_NVLS, NCCL_PROTO_SI
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_NVLS_TREE, NCCL_PROTO_SIMPLE> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
   #if NCCL_NVLS_ENABLED
     const int tid = threadIdx.x;
     const int bid = args->bid;
@@ -480,8 +480,8 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_NVLS_TREE, NCCL_PRO
     const bool hasUp = treeUp != -1;
     const int reduceWarps = hasUp ? 5 : nranks <= 6 ? 7 : 5;
     const int bcastWarps = hasUp ? 4 : 0;
-    const int scatterWarps = ((SCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE) - reduceWarps - bcastWarps + 1)/2;
-    const int gatherWarps = ((SCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE) - reduceWarps - bcastWarps)/2;
+    const int scatterWarps = ((HETCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE) - reduceWarps - bcastWarps + 1)/2;
+    const int gatherWarps = ((HETCCL_CUDA_MAX_NTHREADS/CUDA_WARP_SIZE) - reduceWarps - bcastWarps)/2;
 
     const int nThreadsScatter = scatterWarps*CUDA_WARP_SIZE;
     const int nThreadsGather  = gatherWarps*CUDA_WARP_SIZE;
@@ -556,7 +556,7 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_NVLS_TREE, NCCL_PRO
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_COLLNET_CHAIN, NCCL_PROTO_SIMPLE> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     const int tid = threadIdx.x;
     const int nthreads = args->nWarps*CUDA_WARP_SIZE;
     const int bid = args->bid;
@@ -646,28 +646,28 @@ struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_COLLNET_CHAIN, NCCL
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_LL> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     runRing<T, RedOp, ProtoLL>(args);
   }
 };
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_TREE, NCCL_PROTO_LL> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     runTreeSplit<T, RedOp, ProtoLL>(args);
   }
 };
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_LL128> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     runRing<T, RedOp, ProtoLL128>(args);
   }
 };
 
 template<typename T, typename RedOp>
 struct RunWorkElement<ncclFuncAllReduce, T, RedOp, NCCL_ALGO_TREE, NCCL_PROTO_LL128> {
-  __device__ __forceinline__ void run(scclCudaWorkElem *args) {
+  __device__ __forceinline__ void run(hetcclCudaWorkElem *args) {
     runTreeSplit<T, RedOp, ProtoLL128>(args);
   }
 };

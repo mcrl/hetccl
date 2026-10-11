@@ -14,7 +14,7 @@ MASTER_PORT=${MASTER_PORT:-22555}
 $MPIRUN --allow-run-as-root \
     -mca pml ucx -mca btl ^openib \
     -H ${HOSTS:-apa00:4,apa01:4,v05:4,v06:4} \
-    -x LD_PRELOAD=$HETCCL_HOME/build/libsccl.so \
+    -x LD_PRELOAD=$HETCCL_HOME/build/libhetccl.so \
     -x LD_LIBRARY_PATH=$HETCCL_HOME/build:$HETCCL_HOME/build/deps/tacc:$LD_LIBRARY_PATH \
     -x NCCL_ALGO=RING \
     -x MASTER_ADDR=$MASTER_ADDR \

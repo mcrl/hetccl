@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.5)
 
 project(hetccl-tests CXX)
 
-if(NOT SCCL_HOME)
-  set(SCCL_HOME ${PROJECT_SOURCE_DIR}/../..)
+if(NOT HETCCL_HOME)
+  set(HETCCL_HOME ${PROJECT_SOURCE_DIR}/../..)
 endif()
-message(STATUS "SCCL_HOME: ${SCCL_HOME}")
+message(STATUS "HETCCL_HOME: ${HETCCL_HOME}")
 
 find_package(MPI REQUIRED)
 if(MPI_FOUND)
@@ -18,21 +18,21 @@ endif()
 
 include(ExternalProject)
 
-ExternalProject_Add(sccl_tests_hip
+ExternalProject_Add(hetccl_tests_hip
   SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/hip
   BUILD_ALWAYS true
   CMAKE_ARGS "-DGLOBAL_BINARY_DIR=${PROJECT_BINARY_DIR}"
   CMAKE_ARGS "-DGLOBAL_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-  CMAKE_ARGS "-DSCCL_HOME=${SCCL_HOME}"
+  CMAKE_ARGS "-DHETCCL_HOME=${HETCCL_HOME}"
   CMAKE_ARGS "-DAMDGPU_TARGETS=${AMDGPU_TARGETS}"
 )
 
-ExternalProject_Add(sccl_tests_cuda
+ExternalProject_Add(hetccl_tests_cuda
   SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cuda
   BUILD_ALWAYS true
   CMAKE_ARGS "-DGLOBAL_BINARY_DIR=${PROJECT_BINARY_DIR}"
   CMAKE_ARGS "-DGLOBAL_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-  CMAKE_ARGS "-DSCCL_HOME=${SCCL_HOME}"
+  CMAKE_ARGS "-DHETCCL_HOME=${HETCCL_HOME}"
   CMAKE_ARGS "-DCMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}"
 )
 
@@ -52,16 +52,16 @@ set(COMMON_SRCS
 
 function(gen_exec COLL_NAME)
   add_executable(${COLL_NAME}_perf ${COMMON_SRCS} src/${COLL_NAME}.cpp)
-  add_dependencies(${COLL_NAME}_perf sccl_tests_hip sccl_tests_cuda git_version_check)
+  add_dependencies(${COLL_NAME}_perf hetccl_tests_hip hetccl_tests_cuda git_version_check)
   target_include_directories(${COLL_NAME}_perf PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_include_directories(${COLL_NAME}_perf PRIVATE ${SCCL_HOME}/deps/tacc/include)
-  target_include_directories(${COLL_NAME}_perf PRIVATE ${SCCL_HOME}/build/include)
+  target_include_directories(${COLL_NAME}_perf PRIVATE ${HETCCL_HOME}/deps/tacc/include)
+  target_include_directories(${COLL_NAME}_perf PRIVATE ${HETCCL_HOME}/build/include)
   target_include_directories(${COLL_NAME}_perf PRIVATE /opt/rocm/include)
   target_compile_definitions(${COLL_NAME}_perf PRIVATE __HIP_PLATFORM_AMD__)
   target_compile_definitions(${COLL_NAME}_perf PRIVATE MPI_SUPPORT)
-  target_link_libraries(${COLL_NAME}_perf ${SCCL_HOME}/build/libsccl.so)
+  target_link_libraries(${COLL_NAME}_perf ${HETCCL_HOME}/build/libhetccl.so)
   target_link_libraries(${COLL_NAME}_perf pthread dl ${MPI_LIBRARIES})
-  target_link_libraries(${COLL_NAME}_perf ${SCCL_HOME}/build/deps/tacc/libtacc.so)
+  target_link_libraries(${COLL_NAME}_perf ${HETCCL_HOME}/build/deps/tacc/libtacc.so)
 endfunction()
 
 #add_subdirectory(deps/tacc)

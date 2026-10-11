@@ -171,11 +171,11 @@ ncclResult_t ncclTransportP2pSetup(struct ncclComm* comm, struct ncclTopoGraph* 
                   CUDACHECKGOTO(taccMemcpyAsync(&addr, &comm->channels[c].devPeers[sendPeer], sizeof(struct ncclDevChannelPeer*), taccMemcpyDeviceToHost, comm->sharedRes->hostStream.cudaStream), ret, fail);
                   CUDACHECKGOTO(taccMemcpyAsync(&addr->send[connIndex], &conn->conn, sizeof(struct ncclConnInfo), taccMemcpyHostToDevice, comm->sharedRes->hostStream.cudaStream), ret, fail);
                 } else if (comm->platform == taccPlatformCuda) {
-                  struct scclCudaDevChannelPeer* addr;
+                  struct hetcclCudaDevChannelPeer* addr;
                   conn->connected = 1;
                   /* comm->channels[c].devPeers[sendPeer]->send[connIndex] is a device memory access. */
-                  CUDACHECKGOTO(taccMemcpyAsync(&addr, &comm->channels[c].devPeers[sendPeer], sizeof(struct scclCudaDevChannelPeer*), taccMemcpyDeviceToHost, comm->sharedRes->hostStream.cudaStream), ret, fail);
-                  CUDACHECKGOTO(taccMemcpyAsync(&addr->send[connIndex], &conn->conn, sizeof(struct scclCudaConnInfo), taccMemcpyHostToDevice, comm->sharedRes->hostStream.cudaStream), ret, fail);
+                  CUDACHECKGOTO(taccMemcpyAsync(&addr, &comm->channels[c].devPeers[sendPeer], sizeof(struct hetcclCudaDevChannelPeer*), taccMemcpyDeviceToHost, comm->sharedRes->hostStream.cudaStream), ret, fail);
+                  CUDACHECKGOTO(taccMemcpyAsync(&addr->send[connIndex], &conn->conn, sizeof(struct hetcclCudaConnInfo), taccMemcpyHostToDevice, comm->sharedRes->hostStream.cudaStream), ret, fail);
                 } else {
                   WARN("Unknown backend");
                   return ncclInternalError;
@@ -202,11 +202,11 @@ ncclResult_t ncclTransportP2pSetup(struct ncclComm* comm, struct ncclTopoGraph* 
                   CUDACHECKGOTO(taccMemcpyAsync(&addr, &comm->channels[c].devPeers[recvPeer], sizeof(struct ncclDevChannelPeer*), taccMemcpyDeviceToHost, comm->sharedRes->hostStream.cudaStream), ret, fail);
                   CUDACHECKGOTO(taccMemcpyAsync(&addr->recv[connIndex], &conn->conn, sizeof(struct ncclConnInfo), taccMemcpyHostToDevice, comm->sharedRes->hostStream.cudaStream), ret, fail);
                 } else if (comm->platform == taccPlatformCuda) {
-                  struct scclCudaDevChannelPeer* addr;
+                  struct hetcclCudaDevChannelPeer* addr;
                   conn->connected = 1;
                   /* comm->channels[c].devPeers[recvPeer]->recv[connIndex] is a device memory access. */
-                  CUDACHECKGOTO(taccMemcpyAsync(&addr, &comm->channels[c].devPeers[recvPeer], sizeof(struct scclCudaDevChannelPeer*), taccMemcpyDeviceToHost, comm->sharedRes->hostStream.cudaStream), ret, fail);
-                  CUDACHECKGOTO(taccMemcpyAsync(&addr->recv[connIndex], &conn->conn, sizeof(struct scclCudaConnInfo), taccMemcpyHostToDevice, comm->sharedRes->hostStream.cudaStream), ret, fail);
+                  CUDACHECKGOTO(taccMemcpyAsync(&addr, &comm->channels[c].devPeers[recvPeer], sizeof(struct hetcclCudaDevChannelPeer*), taccMemcpyDeviceToHost, comm->sharedRes->hostStream.cudaStream), ret, fail);
+                  CUDACHECKGOTO(taccMemcpyAsync(&addr->recv[connIndex], &conn->conn, sizeof(struct hetcclCudaConnInfo), taccMemcpyHostToDevice, comm->sharedRes->hostStream.cudaStream), ret, fail);
                 } else {
                   WARN("Unknown backend");
                   return ncclInternalError;

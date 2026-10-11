@@ -16,7 +16,7 @@
 #define NCCL_SPINS_BEFORE_CHECK_ABORT 1000000
 
 #define barrier_by_group() do { \
-  if (nthreads == SCCL_HIP_MAX_NTHREADS) { \
+  if (nthreads == HETCCL_HIP_MAX_NTHREADS) { \
     __asm__ __volatile__("s_waitcnt vmcnt(0) lgkmcnt(0)\ns_barrier\ns_waitcnt lgkmcnt(0)"); \
   } else { \
     const int w = threadIdx.x/HIP_WARP_SIZE; \

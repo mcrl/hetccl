@@ -14,7 +14,7 @@
 #include "collectives.h"
 #include "proxy.h"
 #include "strongstream.h"
-#include "sccl.h"
+#include "hetccl.h"
 #include "plugin.h"
 
 #if 1 //defined(__HIP_PLATFORM_HCC__) || defined(__HCC__) || defined(__HIPCC__)
@@ -108,7 +108,7 @@ struct ncclSharedResources {
   int refCount;
   struct ncclComm* owner; /* comm which creates this shared res. */
   struct ncclChannelPeer* peers[MAXCHANNELS];
-  void* devPeers[MAXCHANNELS]; // ncclDevChannelPeer* or scclCudaDevChannelPeer*
+  void* devPeers[MAXCHANNELS]; // ncclDevChannelPeer* or hetcclCudaDevChannelPeer*
   /* P2P operation counter, one per channel */
   uint64_t p2pOpCount[MAXCHANNELS];
   /* Collective operation counter */
@@ -131,7 +131,7 @@ struct ncclSharedResources {
 
 struct ncclChannel {
   struct ncclChannelPeer** peers;
-  void** devPeers; // ncclDevChannelPeer** or scclCudaDevChannelPeer**
+  void** devPeers; // ncclDevChannelPeer** or hetcclCudaDevChannelPeer**
   struct ncclRing ring;
   int* devRingUserRanks;
   struct ncclTree tree;
@@ -153,7 +153,7 @@ struct ncclChannel {
 
 struct ncclWorkList {
   struct ncclWorkList* next;
-  void* work; // ncclWork* or scclCudaWork*
+  void* work; // ncclWork* or hetcclCudaWork*
 };
 
 struct ncclPointerList {
@@ -179,7 +179,7 @@ struct ncclKernelPlan {
   bool hasProxyOps; // does any channel have a non-empty proxyOpQueue
   int threadPerBlock;
   // workHeap fields are null until uploadWorkFifo() or preparePersistentKernel()
-  void* workHead; // ncclWork* or scclCudaWork*
+  void* workHead; // ncclWork* or hetcclCudaWork*
 
   int collOpCount; // zero based for this plan
 
@@ -285,12 +285,12 @@ struct ncclComm {
   bool hasFineGrain;
 
   // Device side of the communicator (for hipFree's)
-  void* devComm; // ncclDevCommAndChannels* or scclCudaDevCommAndChannels*
+  void* devComm; // ncclDevCommAndChannels* or hetcclCudaDevCommAndChannels*
 
   // Operation pool.
   int workFifoDepth; // size of workFifoHeap[], power of 2
-  void* workFifoHeap; // ncclWork* or scclCudaWork*
-  void* devWorkFifoHeap; // ncclWork* or scclCudaWork*
+  void* workFifoHeap; // ncclWork* or hetcclCudaWork*
+  void* devWorkFifoHeap; // ncclWork* or hetcclCudaWork*
   void* workFifoHeapGdrHandle;
 
   // Work completion notificaion
@@ -375,8 +375,8 @@ struct ncclComm {
   bool mscclCompatible;
   
   taccPlatform platform;
-  scclPlugin_t* scclPlugin;
-  scclPlugin_t* mscclPlugin;
+  hetcclPlugin_t* hetcclPlugin;
+  hetcclPlugin_t* mscclPlugin;
 };
 
 enum ncclLaunchMode {

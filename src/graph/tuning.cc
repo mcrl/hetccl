@@ -275,11 +275,11 @@ ncclResult_t ncclTopoTuneModel(struct ncclComm* comm, int minCompCap, int maxCom
   int simpleDefaultThreads = (graphs[NCCL_ALGO_RING]->bwIntra*graphs[NCCL_ALGO_RING]->nChannels <= PCI_BW) ? 256 : NCCL_SIMPLE_MAX_NTHREADS;
   comm->maxThreads[NCCL_ALGO_RING][NCCL_PROTO_SIMPLE] =
 #if 1 //defined(__HIP_PLATFORM_HCC__) || defined(__HCC__) || defined(__HIPCC__)
-    getNthreads("NCCL_NTHREADS", ncclParamNthreads(), 4*comm->WarpSize, (comm->platform == taccPlatformHip ? SCCL_HIP_MAX_NTHREADS : SCCL_CUDA_MAX_NTHREADS), simpleDefaultThreads, comm->WarpSize);
+    getNthreads("NCCL_NTHREADS", ncclParamNthreads(), 4*comm->WarpSize, (comm->platform == taccPlatformHip ? HETCCL_HIP_MAX_NTHREADS : HETCCL_CUDA_MAX_NTHREADS), simpleDefaultThreads, comm->WarpSize);
   comm->maxThreads[NCCL_ALGO_TREE][NCCL_PROTO_SIMPLE] = comm->maxThreads[NCCL_ALGO_COLLNET_DIRECT][NCCL_PROTO_SIMPLE] =
-    getNthreads("NCCL_NTHREADS", ncclParamNthreads(), 4*comm->WarpSize, (comm->platform == taccPlatformHip ? SCCL_HIP_MAX_NTHREADS : SCCL_CUDA_MAX_NTHREADS), (comm->platform == taccPlatformHip ? SCCL_HIP_MAX_NTHREADS : SCCL_CUDA_MAX_NTHREADS), comm->WarpSize);
+    getNthreads("NCCL_NTHREADS", ncclParamNthreads(), 4*comm->WarpSize, (comm->platform == taccPlatformHip ? HETCCL_HIP_MAX_NTHREADS : HETCCL_CUDA_MAX_NTHREADS), (comm->platform == taccPlatformHip ? HETCCL_HIP_MAX_NTHREADS : HETCCL_CUDA_MAX_NTHREADS), comm->WarpSize);
   comm->maxThreads[NCCL_ALGO_RING][NCCL_PROTO_LL] = comm->maxThreads[NCCL_ALGO_TREE][NCCL_PROTO_LL] = comm->maxThreads[NCCL_ALGO_COLLNET_DIRECT][NCCL_PROTO_LL] =
-    getNthreads("NCCL_NTHREADS", ncclParamNthreads(), 4*comm->WarpSize, (comm->platform == taccPlatformHip ? SCCL_HIP_MAX_NTHREADS : SCCL_CUDA_MAX_NTHREADS), (comm->platform == taccPlatformHip ? SCCL_HIP_MAX_NTHREADS : SCCL_CUDA_MAX_NTHREADS), comm->WarpSize);
+    getNthreads("NCCL_NTHREADS", ncclParamNthreads(), 4*comm->WarpSize, (comm->platform == taccPlatformHip ? HETCCL_HIP_MAX_NTHREADS : HETCCL_CUDA_MAX_NTHREADS), (comm->platform == taccPlatformHip ? HETCCL_HIP_MAX_NTHREADS : HETCCL_CUDA_MAX_NTHREADS), comm->WarpSize);
   comm->maxThreads[NCCL_ALGO_RING][NCCL_PROTO_LL128] = comm->maxThreads[NCCL_ALGO_TREE][NCCL_PROTO_LL128] =
     getNthreads("NCCL_LL128_NTHREADS", ncclParamLl128Nthreads(), 4*comm->WarpSize, NCCL_LL128_MAX_NTHREADS, NCCL_LL128_MAX_NTHREADS, comm->WarpSize);
 #else
@@ -289,7 +289,7 @@ ncclResult_t ncclTopoTuneModel(struct ncclComm* comm, int minCompCap, int maxCom
   comm->maxThreads[NCCL_ALGO_COLLNET_DIRECT][NCCL_PROTO_SIMPLE] =
     comm->maxThreads[NCCL_ALGO_COLLNET_CHAIN][NCCL_PROTO_SIMPLE] =
     comm->maxThreads[NCCL_ALGO_NVLS][NCCL_PROTO_SIMPLE] =
-    comm->maxThreads[NCCL_ALGO_NVLS_TREE][NCCL_PROTO_SIMPLE] = (comm->platform == taccPlatformHip ? SCCL_HIP_MAX_NTHREADS : SCCL_CUDA_MAX_NTHREADS);
+    comm->maxThreads[NCCL_ALGO_NVLS_TREE][NCCL_PROTO_SIMPLE] = (comm->platform == taccPlatformHip ? HETCCL_HIP_MAX_NTHREADS : HETCCL_CUDA_MAX_NTHREADS);
   comm->maxThreads[NCCL_ALGO_RING][NCCL_PROTO_LL] = comm->maxThreads[NCCL_ALGO_TREE][NCCL_PROTO_LL] =
     getNthreads("NCCL_NTHREADS", ncclParamNthreads(), 2*CUDA_WARP_SIZE, NCCL_LL_MAX_NTHREADS, NCCL_LL_MAX_NTHREADS);
   comm->maxThreads[NCCL_ALGO_RING][NCCL_PROTO_LL128] = comm->maxThreads[NCCL_ALGO_TREE][NCCL_PROTO_LL128] =
