@@ -233,13 +233,15 @@ Set `CONDA_BASE` if conda is not installed in `~/miniconda3`, and `AMD_ENV` / `N
 ```bash
 cd benchmark
 
-# HetCCL: 8 NVIDIA + 8 AMD GPUs
-MODEL=llama3.2-1b DS_STAGE=3 ./run_all.sh
+# HetCCL: 8 NVIDIA + 8 AMD GPUs, with GPU-aware workload balancing
+MODEL=llama3.2-1b DS_STAGE=3 BALANCE=1 ./run_all.sh
 # NCCL: 8 NVIDIA GPUs
 MODEL=llama3.2-1b DS_STAGE=3 ./run_nvidia.sh
 # RCCL: 8 AMD GPUs
 MODEL=llama3.2-1b DS_STAGE=3 ./run_amd.sh
 ```
+
+With `BALANCE=1`, each GPU is profiled briefly before training and its micro-batch size is set proportional to its measured speed, with the slowest GPU using `BSZ_PER_GPU` (Section 4.5 of the paper). On our cluster this gives 2 (V100) / 1 (W7800).
 
 Hosts and the rendezvous address can be overridden, e.g. `HOSTS=a0:4,a1:4,n0:4,n1:4 MASTER_ADDR=a0 ./run_all.sh`.
 Logs are written to `benchmark/logs/`.

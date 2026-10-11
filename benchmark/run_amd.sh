@@ -9,7 +9,7 @@ mkdir -p logs
 
 MASTER_ADDR=${MASTER_ADDR:-apa00}
 MASTER_PORT=${MASTER_PORT:-22555}
-: ${MODEL:=llama3.2-1b} ${DS_STAGE:=3} ${BSZ_PER_GPU:=1}
+: ${MODEL:=llama3.2-1b} ${DS_STAGE:=3} ${BSZ_PER_GPU:=1} ${BALANCE:=0}
 
 $MPIRUN --allow-run-as-root \
     -mca pml ucx -mca btl ^openib \
@@ -20,4 +20,5 @@ $MPIRUN --allow-run-as-root \
     -x MODEL=${MODEL} \
     -x DS_STAGE=${DS_STAGE} \
     -x BSZ_PER_GPU=${BSZ_PER_GPU} \
+    -x BALANCE=${BALANCE} \
     ./driver_amd.sh 2>&1 | tee -a logs/amd_model_${MODEL}_stage${DS_STAGE}_bsz${BSZ_PER_GPU}.log

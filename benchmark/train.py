@@ -61,6 +61,28 @@ def get_random_data(batch_size, seq_len, vocab_size):
     labels = seq[:,1:seq_len+1]
     return {'input_ids': input_ids, 'labels': labels}
 
+def profile_speed(model, device, seq_len, vocab_size, iters=3):
+    """Forward+backward tokens/s of this GPU alone (micro-batch 1, no communication)."""
+    model.half().to(device)
+    batch = get_random_data(1, seq_len, vocab_size)
+    input_ids, labels = batch['input_ids'].to(device), batch['labels'].to(device)
+    for it in range(iters + 1):  # first iteration is warm-up
+        if it == 1:
+            torch.cuda.synchronize(device)
+            start = time.time()
+        model(input_ids=input_ids, labels=labels).loss.backward()
+    torch.cuda.synchronize(device)
+    model.zero_grad(set_to_none=True)
+    return iters * seq_len / (time.time() - start)
+
+def balanced_micro_batches(speed, base_bsz, world_size, device):
+    """GPU-aware workload balancing: b_i proportional to speed s_i, with the slowest GPU
+    getting base_bsz (i.e. b_i = B * s_i / sum_j s_j for B = base_bsz * sum_j s_j / min_j s_j)."""
+    speeds = [torch.zeros(1, device=device) for _ in range(world_size)]
+    torch.distributed.all_gather(speeds, torch.tensor([speed], device=device))
+    speeds = [s.item() for s in speeds]
+    return [max(1, round(base_bsz * s / min(speeds))) for s in speeds], speeds
+
 def count_parameters(model):
     """Count total and trainable parameters in the model"""
     total_params = sum(p.numel() for p in model.parameters())
@@ -138,6 +160,22 @@ def main():
     ds_stage = int(os.environ.get('DS_STAGE') or 3) # Default to stage 3
     BSZ_PER_GPU = int(os.environ.get('BSZ_PER_GPU') or 1) # Default to 1
 
+    # Optional GPU-aware workload balancing (BALANCE=1): profile each GPU, then scale its
+    # micro-batch by its speed relative to the slowest GPU (which keeps BSZ_PER_GPU).
+    bszs = [BSZ_PER_GPU] * world_size
+    if int(os.environ.get('BALANCE') or 0):
+        prof_start = time.time()
+        speed = profile_speed(model, device, SEQ_LEN, tokenizer.vocab_size)
+        bszs, speeds = balanced_micro_batches(speed, BSZ_PER_GPU, world_size, device)
+        BSZ_PER_GPU = bszs[rank]
+        if rank == 0:
+            print(f"GPU-aware balancing ({time.time() - prof_start:.1f}s profiling)")
+            for r in range(world_size):
+                print(f"  rank {r}: {speeds[r]:.0f} tokens/s -> micro-batch {bszs[r]}")
+    # Each rank averages its loss over its own micro-batch; reweight so the gradient
+    # all-reduce yields the mean over the global batch.
+    loss_weight = BSZ_PER_GPU * world_size / sum(bszs)
+
     ds_config = DS_BASELINE_CFG
     ds_config["train_micro_batch_size_per_gpu"] = BSZ_PER_GPU
     ds_config["gradient_accumulation_steps"] = 1
@@ -173,7 +211,7 @@ def main():
         labels = labels_fixed.clone().detach()
 
         output = model(input_ids=input_ids, labels=labels)
-        model_engine.backward(output.loss)
+        model_engine.backward(output.loss * loss_weight)
         model_engine.step()
         # profiler.step()
 
@@ -182,7 +220,7 @@ def main():
             torch.distributed.barrier()
             cur_time = time.time()
             if rank == 0:
-                cosumed_tokens = world_size * BSZ_PER_GPU * SEQ_LEN * (it - last_it)
+                cosumed_tokens = sum(bszs) * SEQ_LEN * (it - last_it)
                 tokens_per_sec = cosumed_tokens / (cur_time - last_time)
                 peak_gpu_mem = torch.cuda.max_memory_allocated()
                 time_per_it = (cur_time - last_time) / (it - last_it)

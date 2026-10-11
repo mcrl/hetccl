@@ -16,6 +16,7 @@ set -a
 : ${MODEL=llama3.2-1b}
 : ${DS_STAGE=3}
 : ${BSZ_PER_GPU=1}
+: ${BALANCE=0}
 set +a
 
 # Set CUDA architecture for NVIDIA nodes only
