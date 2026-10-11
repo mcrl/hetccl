@@ -24,7 +24,6 @@ This repository is the official implementation of the NeurIPS 2026 paper:
   - [Point-to-Point & Collective Communication](#point-to-point--collective-communication)
   - [Training LLMs](#training-llms)
 - [Evaluation Results](#evaluation-results)
-- [Known Issues](#known-issues)
 - [License](#license)
 - [Citation](#citation)
 
@@ -271,10 +270,6 @@ Partial results on the system above.
 | HetCCL   | 4 (16)                 | 30845                 | 2.83x               |
 
 Training configuration: sequence length 8192, batch size per GPU 2 (NVIDIA) / 1 (AMD), ZeRO stage 3, FP16.
-
-## Known Issues
-
-- `sendrecv_perf` can hang when the communicator spans both vendors **and** a node hosts two or more ranks (e.g., `-H v05:2,apa00:1`). Collectives (including all-to-all) and point-to-point with one GPU per node are not affected. As a workaround, set `NCCL_P2P_DISABLE=1 NCCL_SHM_DISABLE=1`.
 
 ## License
 

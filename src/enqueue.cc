@@ -256,7 +256,9 @@ static void finishWorkP2p(struct ncclWork* work, int WarpSize) {
   int nGroup = 1;
   while (nGroup < nElem) nGroup *= 2;
   int nWarp = 1;
-  while (nWarp*nGroup <= (SCCL_HIP_MAX_NTHREADS/WarpSize)/2) nWarp *= 2;
+  // ncclWorkElemP2p::nWarps is a 4-bit field: with 512 threads and wave32 (gfx11),
+  // a single-element work would get 16 warps, which wraps to 0 and the element is skipped.
+  while (nWarp*nGroup <= (SCCL_HIP_MAX_NTHREADS/WarpSize)/2 && nWarp < 8) nWarp *= 2;
   for (int i=0; i < nGroup; i++) {
     work->p2pElems[i].ngroups = nGroup;
     work->p2pElems[i].warpStart = i*(SCCL_HIP_MAX_NTHREADS/WarpSize)/nGroup;
