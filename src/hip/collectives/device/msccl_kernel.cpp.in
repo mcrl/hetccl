@@ -1,0 +1,5 @@
+#include "@FILE@_impl.h"
+#include "primitives.h"
+#include "collectives.h"
+#include "devcomm.h"
+MSCCL_IMPL_KERNEL_ENTRY_FUNC_DEVREDOP_TYPE(@REDOP_CURRENT@, @DATA_TYPE@, false);

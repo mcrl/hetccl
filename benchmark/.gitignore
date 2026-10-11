@@ -1,0 +1,5 @@
+/logs
+loss_curves/
+checkpoints/
+*.png
+__pycache__

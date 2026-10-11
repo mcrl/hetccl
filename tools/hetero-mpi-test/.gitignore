@@ -1,0 +1,14 @@
+# Build artifacts
+*.log
+*.o
+
+# Test binaries
+tests/sendrecv/sendrecv_*
+tests/collective/allreduce_*
+tests/collective/allgather_*
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*~

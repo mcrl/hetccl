@@ -1,0 +1,4 @@
+#include "@FILE@.h"
+#include "common.h"
+#include "collectives.h"
+IMPL_COLL3(@FUNC@, @REDOP_CURRENT@, @DATA_TYPE@);
